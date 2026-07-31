@@ -31,6 +31,9 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Decode Debug Keystore
+        run: base64 -d debug.keystore.base64 > debug.keystore
+
       - name: Build Release APK
         run: gradle :app:assembleRelease
 

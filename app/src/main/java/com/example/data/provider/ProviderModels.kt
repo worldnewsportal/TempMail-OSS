@@ -2,6 +2,7 @@ package com.example.data.provider
 
 import com.squareup.moshi.JsonClass
 
+@JsonClass(generateAdapter = true)
 data class ProviderAccountResult(
     val id: String,
     val address: String,
@@ -11,6 +12,7 @@ data class ProviderAccountResult(
     val providerName: String
 )
 
+@JsonClass(generateAdapter = true)
 data class ProviderAttachment(
     val id: String,
     val filename: String,
@@ -19,6 +21,7 @@ data class ProviderAttachment(
     val downloadUrl: String? = null
 )
 
+@JsonClass(generateAdapter = true)
 data class ProviderMessageSummary(
     val id: String,
     val fromName: String,
@@ -29,6 +32,7 @@ data class ProviderMessageSummary(
     val hasAttachments: Boolean
 )
 
+@JsonClass(generateAdapter = true)
 data class ProviderMessageDetail(
     val id: String,
     val fromName: String,
@@ -39,3 +43,4 @@ data class ProviderMessageDetail(
     val receivedAt: Long,
     val attachments: List<ProviderAttachment> = emptyList()
 )
+

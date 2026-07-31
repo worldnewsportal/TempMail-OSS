@@ -88,6 +88,16 @@ object UnityAdsManager {
         placementId: String = BANNER_PLACEMENT
     ) {
         val context = LocalContext.current
+        val settingsRepo = remember(context) { AppSettingsRepository(context) }
+        val settings by settingsRepo.settingsFlow.collectAsState(initial = com.example.data.preferences.AppSettings())
+        val isAdFree = System.currentTimeMillis() < settings.adFreeUntil
+
+        if (isAdFree) {
+            // Unobtrusive empty space so user feels the premium ad-free experience instantly!
+            Spacer(modifier = Modifier.height(0.dp))
+            return
+        }
+
         var adLoadFailed by remember { mutableStateOf(false) }
         var isLoaded by remember { mutableStateOf(false) }
 

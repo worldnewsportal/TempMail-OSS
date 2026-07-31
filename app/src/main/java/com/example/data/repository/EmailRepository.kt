@@ -76,6 +76,17 @@ class EmailRepository(
         emailAccountDao.setActiveAccount(accountId)
     }
 
+    suspend fun extendEmailExpiration(accountId: String, durationMillis: Long) = withContext(Dispatchers.IO) {
+        val account = emailAccountDao.getAccountById(accountId)
+        if (account != null) {
+            val currentExpiresAt = account.expiresAt
+            val now = System.currentTimeMillis()
+            val baseTime = if (currentExpiresAt > now) currentExpiresAt else now
+            val newExpiresAt = baseTime + durationMillis
+            emailAccountDao.updateAccount(account.copy(expiresAt = newExpiresAt))
+        }
+    }
+
     suspend fun deleteEmail(accountId: String) = withContext(Dispatchers.IO) {
         emailAccountDao.deleteAccountById(accountId)
         messageDao.deleteAllForAccount(accountId)

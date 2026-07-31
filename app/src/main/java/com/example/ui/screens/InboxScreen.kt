@@ -56,6 +56,11 @@ fun InboxScreen(
     var selectedFilter by remember { mutableStateOf("all") } // all, unread, attachments, archived
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
 
+    var showAdRewardDialog by remember { mutableStateOf(false) }
+    var initialRewardTypeToSelect by remember { mutableStateOf<com.example.ui.components.RewardType?>(null) }
+
+    val settings by viewModel.appSettings.collectAsState(initial = com.example.data.preferences.AppSettings())
+
     val context = LocalContext.current
 
     val filteredMessages = remember(messagesList, selectedFilter) {
@@ -67,12 +72,34 @@ fun InboxScreen(
         }
     }
 
+    if (showAdRewardDialog) {
+        com.example.ui.components.AdRewardDialog(
+            activeEmailAddress = activeEmail?.address,
+            activeEmailExpiresAt = activeEmail?.expiresAt,
+            adFreeUntil = settings.adFreeUntil,
+            premiumDomainsUnlockedUntil = settings.premiumDomainsUnlockedUntil,
+            onDismiss = { showAdRewardDialog = false },
+            onRewardClaimed = { rewardType ->
+                when (rewardType) {
+                    com.example.ui.components.RewardType.EXTEND_LIFETIME -> viewModel.extendActiveEmailLifetime()
+                    com.example.ui.components.RewardType.AD_FREE -> viewModel.unlockAdFree()
+                    com.example.ui.components.RewardType.PREMIUM_DOMAINS -> viewModel.unlockPremiumDomains()
+                }
+            },
+            initialSelectedType = initialRewardTypeToSelect
+        )
+    }
+
     Scaffold(
         topBar = {
             InboxTopBar(
                 activeEmail = activeEmail,
                 onRefresh = { viewModel.refreshInbox() },
-                onDeleteAll = { if (activeEmail != null) showDeleteAllConfirm = true }
+                onDeleteAll = { if (activeEmail != null) showDeleteAllConfirm = true },
+                onShowRewards = {
+                    initialRewardTypeToSelect = com.example.ui.components.RewardType.EXTEND_LIFETIME
+                    showAdRewardDialog = true
+                }
             )
         },
         modifier = modifier.fillMaxSize()
@@ -98,6 +125,10 @@ fun InboxScreen(
                         putExtra(Intent.EXTRA_TEXT, address)
                     }
                     context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_email)))
+                },
+                onExtendEmail = {
+                    initialRewardTypeToSelect = com.example.ui.components.RewardType.EXTEND_LIFETIME
+                    showAdRewardDialog = true
                 }
             )
 
@@ -159,6 +190,10 @@ fun InboxScreen(
             onCreate = { custom, domain ->
                 viewModel.generateEmail(custom, domain)
                 showCreateDialog = false
+            },
+            onShowAdReward = { rewardType ->
+                initialRewardTypeToSelect = rewardType
+                showAdRewardDialog = true
             }
         )
     }
@@ -181,7 +216,8 @@ fun InboxScreen(
 fun InboxTopBar(
     activeEmail: EmailAccountEntity?,
     onRefresh: () -> Unit,
-    onDeleteAll: () -> Unit
+    onDeleteAll: () -> Unit,
+    onShowRewards: (() -> Unit)? = null
 ) {
     TopAppBar(
         title = {
@@ -191,6 +227,11 @@ fun InboxTopBar(
             )
         },
         actions = {
+            if (onShowRewards != null) {
+                IconButton(onClick = onShowRewards, modifier = Modifier.testTag("rewards_top_btn")) {
+                    Icon(imageVector = Icons.Default.Star, contentDescription = "المكافآت", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
             IconButton(onClick = onRefresh, modifier = Modifier.testTag("refresh_btn")) {
                 Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
             }
@@ -212,7 +253,8 @@ fun AddressCard(
     activeEmail: EmailAccountEntity?,
     onChangeEmail: () -> Unit,
     onCopyEmail: (String) -> Unit,
-    onShareEmail: (String) -> Unit
+    onShareEmail: (String) -> Unit,
+    onExtendEmail: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier
@@ -245,7 +287,31 @@ fun AddressCard(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Timer countdown
-                CountdownTimerView(expiresAt = activeEmail.expiresAt)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CountdownTimerView(expiresAt = activeEmail.expiresAt)
+                    if (onExtendEmail != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = onExtendEmail,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f))
+                                .testTag("extend_email_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "تمديد الصلاحية ساعة إضافية",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

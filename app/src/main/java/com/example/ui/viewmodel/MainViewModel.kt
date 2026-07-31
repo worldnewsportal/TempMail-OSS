@@ -450,6 +450,36 @@ class MainViewModel(
         }
     }
 
+    fun extendActiveEmailLifetime(durationMillis: Long = 1 * 60 * 60 * 1000L) { // default 1 hour
+        viewModelScope.launch {
+            val currentActive = repo.activeAccount.firstOrNull()
+            if (currentActive != null) {
+                repo.extendEmailExpiration(currentActive.id, durationMillis)
+                showToast("تم تمديد صلاحية البريد الإلكتروني بنجاح!")
+            } else {
+                showToast("لا يوجد بريد نشط لتمديده!")
+            }
+        }
+    }
+
+    fun unlockAdFree(hours: Int = 24) {
+        viewModelScope.launch {
+            val durationMillis = hours * 60 * 60 * 1000L
+            val now = System.currentTimeMillis()
+            settingsRepo.updateAdFreeUntil(now + durationMillis)
+            showToast("تم تفعيل الوضع الخالي من الإعلانات لمدة $hours ساعة!")
+        }
+    }
+
+    fun unlockPremiumDomains(hours: Int = 2) {
+        viewModelScope.launch {
+            val durationMillis = hours * 60 * 60 * 1000L
+            val now = System.currentTimeMillis()
+            settingsRepo.updatePremiumDomainsUnlockedUntil(now + durationMillis)
+            showToast("تم فتح النطاقات المميزة بنجاح لمدة $hours ساعتين!")
+        }
+    }
+
     fun downloadAttachment(filename: String, downloadUrl: String) {
         try {
             val downloadManager = application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
