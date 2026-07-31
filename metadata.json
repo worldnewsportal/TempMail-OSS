@@ -1,0 +1,6 @@
+{
+  "name": "TempMail OSS",
+  "description": "An Open Source Android Temporary Email application featuring 7-day expiration, zero cooldown email change, multi-provider support, and complete Arabic and English localization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">بريد مؤقت مفتوح المصدر</string>
+    <!-- Navigation & Tabs -->
+    <string name="nav_inbox">صندوق الوارد</string>
+    <string name="nav_manage">العناوين</string>
+    <string name="nav_search">البحث</string>
+    <string name="nav_settings">الإعدادات</string>
+    <string name="nav_about">حول التطبيق</string>
+
+    <!-- Top Bar & Email Display -->
+    <string name="change_email">تغيير البريد</string>
+    <string name="copy_email">نسخ البريد</string>
+    <string name="share_email">مشاركة البريد</string>
+    <string name="email_copied">تم نسخ عنوان البريد الإلكتروني إلى الحافظة</string>
+    <string name="sender_copied">تم نسخ اسم المرسل</string>
+    <string name="subject_copied">تم نسخ الموضوع</string>
+    <string name="message_copied">تم نسخ محتوى الرسالة إلى الحافظة</string>
+    <string name="no_active_email">لا يوجد بريد نشط</string>
+    <string name="expires_in">ينتهي خلال: %1$s</string>
+    <string name="days_short">%1$dي</string>
+    <string name="hours_short">%1$dس</string>
+    <string name="mins_short">%1$dد</string>
+    <string name="expired">منتهي الصلاحية</string>
+
+    <!-- Change Email Dialog -->
+    <string name="generate_email_title">إنشاء بريد إلكتروني مؤقت</string>
+    <string name="generate_random">بريد عشوائي</string>
+    <string name="generate_custom">اسم مستخدم مخصص</string>
+    <string name="username_hint">أدخل اسم المستخدم</string>
+    <string name="domain_select">اختر النطاق</string>
+    <string name="btn_create">إنشاء البريد</string>
+    <string name="btn_cancel">إلغاء</string>
+    <string name="btn_close">إغلاق</string>
+    <string name="btn_save">حفظ</string>
+    <string name="btn_delete">حذف</string>
+    <string name="btn_rename">تسمية الوصف</string>
+    <string name="btn_favorite">تفضيل</string>
+    <string name="btn_retry">إعادة المحاولة</string>
+    <string name="btn_confirm">تأكيد</string>
+
+    <!-- Inbox & Filters -->
+    <string name="filter_all">الكل</string>
+    <string name="filter_unread">غير مقروء</string>
+    <string name="filter_attachments">المرفقات</string>
+    <string name="filter_archived">المؤرشفة</string>
+    <string name="inbox_empty_title">صندوق الوارد المؤقت جاهز</string>
+    <string name="inbox_empty_subtitle">تظهر الرسائل الواردة فوراً. يبقى العنوان نشطاً لمدة سبعة أيام دون أي فترة انتظار عند إنشاء عناوين جديدة.</string>
+    <string name="unread_badge">%1$d جديد</string>
+    <string name="mark_all_read">تحديد الكل كمقروء</string>
+    <string name="delete_all_messages">حذف جميع الرسائل</string>
+    <string name="confirm_delete_all">هل أنت متأكد من رغبتك في حذف جميع الرسائل في صندوق الوارد؟</string>
+    <string name="selected_count">تم تحديد %1$d</string>
+    <string name="badge_spam">محتوى مزعج</string>
+    <string name="badge_attachment">مرفق</string>
+
+    <!-- Email Details -->
+    <string name="view_html">عرض متطور</string>
+    <string name="view_text">نص عادي</string>
+    <string name="from_label">من:</string>
+    <string name="to_label">إلى:</string>
+    <string name="subject_label">الموضوع:</string>
+    <string name="date_label">التاريخ:</string>
+    <string name="reply_to_label">الرد على:</string>
+    <string name="attachments_title">المرفقات (%1$d)</string>
+    <string name="download_attachment">تنزيل</string>
+    <string name="open_preview">معاينة</string>
+    <string name="attachment_saved">تم حفظ المرفق في التنزيلات</string>
+
+    <!-- Manage Emails Screen -->
+    <string name="manage_title">عناوين البريد النشطة</string>
+    <string name="manage_subtitle">تبقى العناوين السابقة نشطة لمدة سبعة أيام. يمكنك التبديل في أي وقت وبدون أي قيود.</string>
+    <string name="label_active">نشط حالياً</string>
+    <string name="label_favorite">مفضل</string>
+    <string name="label_hint">وصف مخصص</string>
+    <string name="label_rename_title">تعديل وصف البريد</string>
+    <string name="confirm_delete_email">هل أنت متأكد من رغبتك في حذف عنوان البريد هذا؟ سيتم إزالة الرسائل المرتبطة به.</string>
+
+    <!-- Search Screen -->
+    <string name="search_hint">ابحث في المرسل، الموضوع، المحتوى...</string>
+    <string name="no_search_results">لم يتم العثور على رسائل مطابقة</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="setting_language">اللغة</string>
+    <string name="setting_language_desc">تبديل لغة الواجهة فوراً دون إعادة تشغيل</string>
+    <string name="lang_english">English (US)</string>
+    <string name="lang_arabic">العربية (Arabic)</string>
+    <string name="setting_theme">مظهر واجهة التطبيق</string>
+    <string name="theme_system">النظام التلقائي</string>
+    <string name="theme_light">الوضع الفاتح</string>
+    <string name="theme_dark">الوضع الداكن</string>
+    <string name="theme_oled">وضع الأسود الحالك (توفير البطارية)</string>
+    <string name="setting_auto_refresh">فترة التحديث التلقائي</string>
+    <string name="refresh_off">متوقف</string>
+    <string name="refresh_15s">كل خمس عشرة ثانية</string>
+    <string name="refresh_30s">كل ثلاثين ثانية</string>
+    <string name="refresh_60s">كل دقيقة واحدة</string>
+    <string name="refresh_5m">كل خمس دقائق</string>
+    <string name="setting_notifications">إشعارات الرسائل الجديدة</string>
+    <string name="setting_notifications_desc">إظهار إشعار فوري عند وصول رسالة جديدة</string>
+    <string name="setting_sound">نغمة التنبيه</string>
+    <string name="setting_vibrate">الاهتزاز</string>
+    <string name="setting_delete_expired">حذف الرسائل المنتهية تلقائياً</string>
+    <string name="setting_delete_expired_desc">تنظيف العناوين الأقدم من سبعة أيام تلقائياً</string>
+    <string name="setting_download_folder">مجلد الحفظ</string>
+    <string name="setting_cache">حجم التخزين المؤقت</string>
+    <string name="clear_cache">مسح التخزين المؤقت</string>
+    <string name="cache_cleared">تم مسح التخزين المؤقت بنجاح</string>
+    <string name="setting_about">حول والخصوصية</string>
+    <string name="setting_licenses">تراخيص المصدر المفتوح</string>
+    <string name="setting_version">الإصدار الأول المفتوح المصدر (ترخيص MIT)</string>
+
+    <!-- About & Privacy -->
+    <string name="about_title">حول بريد مؤقت مفتوح المصدر</string>
+    <string name="about_privacy_title">خصوصية كاملة ومصدر مفتوح 100%</string>
+    <string name="about_privacy_text">هذا التطبيق هو عميل بريد إلكتروني مؤقت ومفتوح المصدر بالكامل. لا يتطلب إنشاء حساب، ولا يجمع أي بيانات شخصية، وخالٍ تماماً من الإعلانات وأدوات التتبع والتحليلات.</string>
+    <string name="mit_license">ترخيص MIT — جميع الحقوق محفوظة للمصدر المفتوح.</string>
+    <string name="github_link">مستودع الكود على جيت هاب</string>
+
+    <!-- Error Handling -->
+    <string name="error_network_unavailable">الشبكة غير متاحة. يتم عرض المحتوى المخزن مؤقتاً.</string>
+    <string name="error_provider_failover">تم التبديل تلقائياً إلى مزود خدمة آخر لضمان استمرارية الخدمة.</string>
+    <string name="error_general">حدث خطأ ما. يرجى المحاولة مرة أخرى.</string>
+    <string name="provider_mail_tm">مزود الخدمة الأساسي</string>
+    <string name="provider_guerrilla">مزود الخدمة الاحتياطي الأول</string>
+    <string name="provider_onesec">مزود الخدمة الاحتياطي الثاني</string>
+</resources>
