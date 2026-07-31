@@ -48,6 +48,42 @@ object UnityAdsManager {
     var isInitialized = false
         private set
 
+    fun showRewardedAd(
+        activity: android.app.Activity,
+        placementId: String = "Rewarded_Android",
+        onComplete: () -> Unit,
+        onFailed: () -> Unit
+    ) {
+        if (!isInitialized) {
+            onFailed()
+            return
+        }
+
+        UnityAds.load(placementId, object : com.unity3d.ads.IUnityAdsLoadListener {
+            override fun onUnityAdsAdLoaded(loadedPlacementId: String?) {
+                UnityAds.show(activity, placementId, object : com.unity3d.ads.IUnityAdsShowListener {
+                    override fun onUnityAdsShowFailure(showPlacementId: String?, error: UnityAds.UnityAdsShowError?, message: String?) {
+                        Log.e(TAG, "Rewarded ad show failure: $message")
+                        onFailed()
+                    }
+                    override fun onUnityAdsShowStart(showPlacementId: String?) {}
+                    override fun onUnityAdsShowClick(showPlacementId: String?) {}
+                    override fun onUnityAdsShowComplete(showPlacementId: String?, state: UnityAds.UnityAdsShowCompletionState?) {
+                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                            onComplete()
+                        } else {
+                            onFailed()
+                        }
+                    }
+                })
+            }
+            override fun onUnityAdsFailedToLoad(loadPlacementId: String?, error: UnityAds.UnityAdsLoadError?, message: String?) {
+                Log.e(TAG, "Rewarded ad failed to load: $message")
+                onFailed()
+            }
+        })
+    }
+
     fun initialize(context: Context) {
         if (isInitialized) return
         initializeWithTestMode(context.applicationContext, false)
@@ -126,7 +162,17 @@ object UnityAdsManager {
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                             try {
-                                val bannerView = BannerView(ctx as android.app.Activity, placementId, UnityBannerSize(320, 50))
+                                val activity = generateSequence(ctx) { if (it is android.content.ContextWrapper) it.baseContext else null }
+                                    .filterIsInstance<android.app.Activity>()
+                                    .firstOrNull()
+
+                                if (activity == null) {
+                                    Log.e(TAG, "Context is not an Activity")
+                                    adLoadFailed = true
+                                    return@apply
+                                }
+
+                                val bannerView = BannerView(activity, placementId, UnityBannerSize(320, 50))
                                 bannerView.listener = object : BannerView.IListener {
                                     override fun onBannerLoaded(view: BannerView?) {
                                         isLoaded = true

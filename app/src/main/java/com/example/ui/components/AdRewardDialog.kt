@@ -46,6 +46,7 @@ fun AdRewardDialog(
     var selectedType by remember { mutableStateOf(initialSelectedType ?: RewardType.EXTEND_LIFETIME) }
     var screenState by remember { mutableStateOf("select") } // "select", "playing", "success"
     var secondsRemaining by remember { mutableStateOf(60) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Simulated sponsor state
     val sponsor = remember(selectedType) {
@@ -119,7 +120,25 @@ fun AdRewardDialog(
                             premiumDomainsUnlockedUntil = premiumDomainsUnlockedUntil,
                             selectedType = selectedType,
                             onTypeSelected = { selectedType = it },
-                            onStartAd = { screenState = "playing" },
+                            onStartAd = {
+                                val activity = generateSequence(context) { if (it is android.content.ContextWrapper) it.baseContext else null }
+                                    .filterIsInstance<android.app.Activity>()
+                                    .firstOrNull()
+                                if (activity != null) {
+                                    com.example.ads.UnityAdsManager.showRewardedAd(
+                                        activity = activity,
+                                        onComplete = {
+                                            screenState = "success"
+                                        },
+                                        onFailed = {
+                                            // Fallback to simulated ad if real ad fails (e.g. adblocker)
+                                            screenState = "playing"
+                                        }
+                                    )
+                                } else {
+                                    screenState = "playing"
+                                }
+                            },
                             onDismiss = onDismiss
                         )
                     }
