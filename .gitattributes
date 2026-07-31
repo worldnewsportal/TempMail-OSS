@@ -1,0 +1,6 @@
+# Treat jar, png, jks files as binary to avoid line ending corruption on different OS platforms
+*.jar binary
+*.jks binary
+*.png binary
+*.webp binary
+*.gif binary
