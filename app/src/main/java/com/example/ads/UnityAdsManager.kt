@@ -86,11 +86,43 @@ object UnityAdsManager {
 
     fun initialize(context: Context) {
         if (isInitialized) return
-        initializeWithTestMode(context.applicationContext, false)
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val settingsRepo = AppSettingsRepository(context)
+                val settings = settingsRepo.settingsFlow.first()
+                withContext(Dispatchers.Main) {
+                    initializeWithTestMode(context.applicationContext, settings.adsTestMode)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    // Fallback to true if we can't read settings, since test ads are safer
+                    initializeWithTestMode(context.applicationContext, true)
+                }
+            }
+        }
+    }
+
+    private fun isValidGameId(gameId: String): Boolean {
+        // Strong validation for Game ID:
+        // 1. Not null or empty
+        // 2. Contains only digits
+        // 3. Length between 5 and 10 digits
+        if (gameId.isBlank()) return false
+        if (!gameId.all { it.isDigit() }) return false
+        if (gameId.length !in 5..10) return false
+        return true
     }
 
     private fun initializeWithTestMode(context: Context, testMode: Boolean) {
         if (isInitialized) return
+        
+        if (!isValidGameId(GAME_ID_ANDROID)) {
+            Log.e(TAG, "CRITICAL ERROR: Unity Game ID '$GAME_ID_ANDROID' is invalid! It must be a 5-10 digit number. Ads will not initialize.")
+            isInitialized = false
+            return
+        }
+
         try {
             Log.d(TAG, "Initializing Unity Ads with Game ID: $GAME_ID_ANDROID, testMode: $testMode")
             UnityAds.initialize(
