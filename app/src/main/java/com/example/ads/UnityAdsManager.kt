@@ -119,12 +119,10 @@ object UnityAdsManager {
                         when (error) {
                             UnityAds.UnityAdsInitializationError.INTERNAL_ERROR ->
                                 Log.e(TAG, "   → Internal error. Check internet connection and try again.")
-                            UnityAds.UnityAdsInitializationError.INVALID_ACTIVITY ->
-                                Log.e(TAG, "   → Invalid activity. Make sure initialize() is called with application context.")
+                            UnityAds.UnityAdsInitializationError.INVALID_ARGUMENT ->
+                                Log.e(TAG, "   → Invalid argument. Check Game ID and make sure initialize() is called with application context.")
                             UnityAds.UnityAdsInitializationError.AD_BLOCKER_DETECTED ->
                                 Log.e(TAG, "   → Ad blocker detected! Disable ad blockers to use Unity Ads.")
-                            UnityAds.UnityAdsInitializationError.NO_FILL ->
-                                Log.e(TAG, "   → No fill — Unity servers have no ads for this Game ID yet.")
                             else ->
                                 Log.e(TAG, "   → Unknown error. Verify Game ID at https://dashboard.unity3d.com")
                         }
@@ -322,63 +320,64 @@ object UnityAdsManager {
                 )
             }
 
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    FrameLayout(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        try {
-                            val activity = generateSequence(ctx) {
-                                if (it is android.content.ContextWrapper) it.baseContext else null
-                            }.filterIsInstance<android.app.Activity>().firstOrNull()
-
-                            if (activity == null) {
-                                Log.e(TAG, "❌ Banner: Context is not an Activity")
-                                adLoadFailed = true
-                                return@apply
-                            }
-
-                            val bannerView = BannerView(
-                                activity, placementId, UnityBannerSize(320, 50)
+            key(retryKey) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        FrameLayout(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                            bannerView.listener = object : BannerView.IListener {
-                                override fun onBannerLoaded(view: BannerView?) {
-                                    isLoaded = true
-                                    Log.i(TAG, "✅ REAL BANNER AD loaded! Placement: $placementId")
-                                }
-                                override fun onBannerClick(view: BannerView?) {
-                                    Log.d(TAG, "Banner clicked")
-                                }
-                                override fun onBannerFailedToLoad(
-                                    view: BannerView?,
-                                    error: com.unity3d.services.banners.BannerErrorInfo?
-                                ) {
+                            try {
+                                val activity = generateSequence(ctx) {
+                                    if (it is android.content.ContextWrapper) it.baseContext else null
+                                }.filterIsInstance<android.app.Activity>().firstOrNull()
+
+                                if (activity == null) {
+                                    Log.e(TAG, "Banner: Context is not an Activity")
                                     adLoadFailed = true
-                                    Log.e(TAG, "❌ Banner FAILED to load! Placement: $placementId")
-                                    Log.e(TAG, "   Error: ${error?.errorCode} — ${error?.errorMessage}")
-                                    Log.e(TAG, "   This is COMMON for banner ads in Unity Ads.")
-                                    Log.e(TAG, "   Banner fill rates can be low, especially for new apps.")
-                                    Log.e(TAG, "   Interstitial and Rewarded ads typically have better fill rates.")
-                                    Log.e(TAG, "   Make sure placement '$placementId' exists in Unity Dashboard.")
+                                    return@apply
                                 }
-                                override fun onBannerLeftApplication(view: BannerView?) {}
-                                override fun onBannerShown(view: BannerView?) {
-                                    Log.i(TAG, "✅ REAL BANNER AD displayed on screen!")
+
+                                val bannerView = BannerView(
+                                    activity, placementId, UnityBannerSize(320, 50)
+                                )
+                                bannerView.listener = object : BannerView.IListener {
+                                    override fun onBannerLoaded(view: BannerView?) {
+                                        isLoaded = true
+                                        Log.i(TAG, "REAL BANNER AD loaded! Placement: $placementId")
+                                    }
+                                    override fun onBannerClick(view: BannerView?) {
+                                        Log.d(TAG, "Banner clicked")
+                                    }
+                                    override fun onBannerFailedToLoad(
+                                        view: BannerView?,
+                                        error: com.unity3d.services.banners.BannerErrorInfo?
+                                    ) {
+                                        adLoadFailed = true
+                                        Log.e(TAG, "Banner FAILED to load! Placement: $placementId")
+                                        Log.e(TAG, "   Error: ${error?.errorCode} — ${error?.errorMessage}")
+                                        Log.e(TAG, "   This is COMMON for banner ads in Unity Ads.")
+                                        Log.e(TAG, "   Banner fill rates can be low, especially for new apps.")
+                                        Log.e(TAG, "   Interstitial and Rewarded ads typically have better fill rates.")
+                                        Log.e(TAG, "   Make sure placement '$placementId' exists in Unity Dashboard.")
+                                    }
+                                    override fun onBannerLeftApplication(view: BannerView?) {}
+                                    override fun onBannerShown(view: BannerView?) {
+                                        Log.i(TAG, "REAL BANNER AD displayed on screen!")
+                                    }
                                 }
+                                bannerView.load()
+                                addView(bannerView)
+                            } catch (e: Throwable) {
+                                adLoadFailed = true
+                                Log.e(TAG, "Banner exception: ${e.message}", e)
                             }
-                            bannerView.load()
-                            addView(bannerView)
-                        } catch (e: Throwable) {
-                            adLoadFailed = true
-                            Log.e(TAG, "❌ Banner exception: ${e.message}", e)
                         }
                     }
-                },
-                key = retryKey
-            )
+                )
+            }
         }
     }
 }
