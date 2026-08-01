@@ -23,7 +23,7 @@ data class AppSettings(
     val vibrationEnabled: Boolean = true,
     val deleteExpiredAuto: Boolean = true,
     val downloadFolder: String = "Downloads/TempMailOSS",
-    val adsTestMode: Boolean = false,
+    val adsTestMode: Boolean = true,
     val adFreeUntil: Long = 0L,
     val premiumDomainsUnlockedUntil: Long = 0L
 )
@@ -54,7 +54,7 @@ class AppSettingsRepository(private val context: Context) {
             vibrationEnabled = prefs[KEY_VIBRATION] ?: true,
             deleteExpiredAuto = prefs[KEY_DELETE_EXPIRED] ?: true,
             downloadFolder = prefs[KEY_DOWNLOAD_FOLDER] ?: "Downloads/TempMailOSS",
-            adsTestMode = prefs[KEY_ADS_TEST_MODE] ?: false,
+            adsTestMode = prefs[KEY_ADS_TEST_MODE] ?: true,
             adFreeUntil = prefs[KEY_AD_FREE_UNTIL] ?: 0L,
             premiumDomainsUnlockedUntil = prefs[KEY_PREMIUM_DOMAINS_UNTIL] ?: 0L
         )
