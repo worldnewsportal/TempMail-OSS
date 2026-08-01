@@ -2,6 +2,10 @@ package com.example.ads
 
 import android.app.Activity
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -53,6 +57,9 @@ import com.unity3d.services.banners.UnityBannerSize
  * The Dashboard test mode override takes PRECEDENCE over the SDK parameter.
  * If the Dashboard is set to "Force Test Mode ON", real ads will NEVER show
  * regardless of what the code says.
+ *
+ * Network: Unity Ads uses HTTPS only. No special network config needed.
+ * If the app starts offline, the SDK will retry when connectivity is restored.
  */
 object UnityAdsManager {
 
@@ -73,16 +80,36 @@ object UnityAdsManager {
         private set
 
     private var isInitializing = false
+    private var initFailed = false
+    private var appContext: Context? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     // ========== INITIALIZATION ==========
 
     /**
      * Initialize Unity Ads SDK in PRODUCTION mode.
      * Test mode is NEVER enabled - hardcoded to false.
+     * If there's no internet, it will automatically retry when connectivity is restored.
      */
     fun initialize(context: Context) {
         if (isInitialized || isInitializing) return
+
+        appContext = context.applicationContext
+
+        // Check if there's internet first
+        if (!isNetworkAvailable(context)) {
+            Log.w(TAG, "No internet connection - will initialize when network is available")
+            registerNetworkCallback(context)
+            return
+        }
+
+        doInitialize(context.applicationContext)
+    }
+
+    private fun doInitialize(context: Context) {
+        if (isInitialized || isInitializing) return
         isInitializing = true
+        initFailed = false
 
         Log.i(TAG, "============================================")
         Log.i(TAG, "Unity Ads SDK - PRODUCTION initialization")
@@ -93,20 +120,19 @@ object UnityAdsManager {
         Log.i(TAG, "  Rewarded: $REWARDED_PLACEMENT")
         Log.i(TAG, "============================================")
 
-        val appContext = context.applicationContext
-
         try {
             UnityAds.initialize(
-                appContext,
+                context,
                 GAME_ID,
                 TEST_MODE,
                 object : IUnityAdsInitializationListener {
                     override fun onInitializationComplete() {
                         isInitialized = true
                         isInitializing = false
+                        initFailed = false
+                        // Unregister network callback - no longer needed
+                        unregisterNetworkCallback()
                         Log.i(TAG, "Unity Ads initialized - PRODUCTION MODE")
-                        Log.i(TAG, "If you still see test ads, check Unity Dashboard:")
-                        Log.i(TAG, "  Monetization > Project Settings > Test Mode > Force OFF")
                     }
 
                     override fun onInitializationFailed(
@@ -115,6 +141,7 @@ object UnityAdsManager {
                     ) {
                         isInitialized = false
                         isInitializing = false
+                        initFailed = true
                         Log.e(TAG, "Unity Ads initialization FAILED!")
                         Log.e(TAG, "  Error: $error")
                         Log.e(TAG, "  Message: $message")
@@ -129,13 +156,74 @@ object UnityAdsManager {
                             else ->
                                 Log.e(TAG, "  -> Unknown error. Verify Game ID at dashboard.unity3d.com")
                         }
+                        // Register for network retry
+                        appContext?.let { registerNetworkCallback(it) }
                     }
                 }
             )
         } catch (e: Throwable) {
             isInitialized = false
             isInitializing = false
+            initFailed = true
             Log.e(TAG, "Exception during Unity Ads init: ${e.message}", e)
+            appContext?.let { registerNetworkCallback(it) }
+        }
+    }
+
+    // ========== NETWORK CONNECTIVITY ==========
+
+    private fun isNetworkAvailable(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val network = cm?.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    /**
+     * Register a network callback to retry initialization when internet becomes available.
+     * This handles the case where the app starts offline.
+     */
+    private fun registerNetworkCallback(context: Context) {
+        if (isInitialized) return
+
+        try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+
+            // Unregister any existing callback first
+            unregisterNetworkCallback()
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.i(TAG, "Network available - retrying Unity Ads initialization")
+                    if (!isInitialized && !isInitializing) {
+                        appContext?.let { doInitialize(it) }
+                    }
+                }
+            }
+
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            cm.registerNetworkCallback(request, callback)
+            networkCallback = callback
+            Log.d(TAG, "Network callback registered - will init when online")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to register network callback: ${e.message}", e)
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let {
+                appContext?.let { ctx ->
+                    val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                    cm?.unregisterNetworkCallback(it)
+                }
+            }
+            networkCallback = null
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to unregister network callback: ${e.message}")
         }
     }
 
