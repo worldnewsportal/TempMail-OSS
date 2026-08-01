@@ -107,19 +107,18 @@ object UnityAdsManager {
             try {
                 val settingsRepo = AppSettingsRepository(context)
                 val settings = settingsRepo.settingsFlow.first()
-                // IMPORTANT: For test Game IDs, testMode MUST be true.
-                // If adsTestMode is false but we detect a test Game ID, we force test mode on
-                // to prevent initialization failures.
-                val effectiveTestMode = settings.adsTestMode || isTestGameId(GAME_ID_ANDROID)
+                // Use the adsTestMode setting directly.
+                // Production mode (false) serves real ads; Test mode (true) serves test ads.
+                val effectiveTestMode = settings.adsTestMode
                 withContext(Dispatchers.Main) {
                     initializeWithTestMode(context.applicationContext, effectiveTestMode)
                     isInitializing = false
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    // Fallback to test mode if we can't read settings — test mode is safer
-                    Log.w(TAG, "Failed to read settings, defaulting to test mode", e)
-                    initializeWithTestMode(context.applicationContext, true)
+                    // Fallback to production mode if we can't read settings
+                    Log.w(TAG, "Failed to read settings, defaulting to production mode", e)
+                    initializeWithTestMode(context.applicationContext, false)
                     isInitializing = false
                 }
             }
