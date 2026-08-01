@@ -20,6 +20,8 @@ import com.example.data.di.AppContainer
 import com.example.data.db.EmailAccountEntity
 import com.example.data.db.MessageEntity
 import com.example.data.preferences.AppSettings
+import com.example.data.provider.ProviderSendResult
+import com.example.data.provider.SendAttachment
 import com.example.data.work.BackgroundSyncWorker
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -381,6 +383,58 @@ class MainViewModel(
             }
             showToast("${messageIds.size} messages deleted")
         }
+    }
+
+    /**
+     * Send an email message from the active account.
+     */
+    fun sendMessage(
+        to: List<String>,
+        cc: List<String> = emptyList(),
+        bcc: List<String> = emptyList(),
+        subject: String,
+        textBody: String,
+        htmlBody: String? = null,
+        attachments: List<SendAttachment> = emptyList(),
+        replyToMessageId: String? = null,
+        onResult: (ProviderSendResult) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            val account = repo.activeAccount.firstOrNull()
+            if (account == null) {
+                _uiState.value = UiState.Error("No active email account")
+                showToast("No active email account to send from")
+                onResult(ProviderSendResult(false, errorMessage = "No active account"))
+                return@launch
+            }
+            val result = repo.sendMessage(
+                accountId = account.id,
+                to = to,
+                cc = cc,
+                bcc = bcc,
+                subject = subject,
+                textBody = textBody,
+                htmlBody = htmlBody,
+                attachments = attachments,
+                replyToMessageId = replyToMessageId
+            )
+            if (result.isSuccess) {
+                _uiState.value = UiState.Success("Email sent successfully")
+                showToast("Email sent successfully!")
+            } else {
+                _uiState.value = UiState.Error(result.errorMessage ?: "Failed to send email")
+                showToast("Failed to send: ${result.errorMessage}")
+            }
+            onResult(result)
+        }
+    }
+
+    /**
+     * Check if the active account supports sending emails.
+     */
+    suspend fun activeAccountSupportsSending(): Boolean {
+        return repo.activeAccountSupportsSending()
     }
 
     fun archiveMessage(messageId: String, archive: Boolean) {

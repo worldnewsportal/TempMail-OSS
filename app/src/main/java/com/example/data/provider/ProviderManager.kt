@@ -90,4 +90,56 @@ class ProviderManager(
     fun getProviderByName(name: String): EmailProvider {
         return providers.find { it.providerName.equals(name, ignoreCase = true) } ?: guerrillaMailProvider
     }
+
+    /**
+     * Check if the current active provider supports sending emails.
+     */
+    suspend fun currentProviderSupportsSending(): Boolean {
+        return getActiveProvider().supportsSending()
+    }
+
+    /**
+     * Get a provider that supports sending emails.
+     * Returns null if no provider supports sending.
+     */
+    suspend fun getSendingProvider(): EmailProvider? {
+        val current = getActiveProvider()
+        if (current.supportsSending()) return current
+        return providers.find { it.supportsSending() }
+    }
+
+    /**
+     * Send an email message using the best available provider.
+     */
+    suspend fun sendMessage(
+        accountId: String,
+        token: String,
+        providerName: String,
+        to: List<String>,
+        cc: List<String> = emptyList(),
+        bcc: List<String> = emptyList(),
+        subject: String,
+        textBody: String,
+        htmlBody: String? = null,
+        attachments: List<SendAttachment> = emptyList(),
+        replyToMessageId: String? = null
+    ): ProviderSendResult = withContext(Dispatchers.IO) {
+        val provider = getProviderByName(providerName)
+        if (provider.supportsSending()) {
+            return@withContext provider.sendMessage(
+                accountId, token, to, cc, bcc, subject, textBody, htmlBody, attachments, replyToMessageId
+            )
+        }
+        // Try to find a provider that supports sending
+        val sendingProvider = getSendingProvider()
+        if (sendingProvider != null) {
+            return@withContext sendingProvider.sendMessage(
+                accountId, token, to, cc, bcc, subject, textBody, htmlBody, attachments, replyToMessageId
+            )
+        }
+        ProviderSendResult(
+            isSuccess = false,
+            errorMessage = "No email provider supports sending. Please create a Mail.tm account to send emails."
+        )
+    }
 }

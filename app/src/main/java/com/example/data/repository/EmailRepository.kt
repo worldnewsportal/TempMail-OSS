@@ -7,6 +7,8 @@ import com.example.data.db.EmailAccountEntity
 import com.example.data.db.MessageEntity
 import com.example.data.provider.ProviderManager
 import com.example.data.provider.ProviderMessageDetail
+import com.example.data.provider.ProviderSendResult
+import com.example.data.provider.SendAttachment
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import kotlinx.coroutines.Dispatchers
@@ -219,6 +221,51 @@ class EmailRepository(
 
     suspend fun getMessageCount(accountId: String): Int = withContext(Dispatchers.IO) {
         messageDao.getMessageCount(accountId)
+    }
+
+    /**
+     * Send an email message from the given account.
+     */
+    suspend fun sendMessage(
+        accountId: String,
+        to: List<String>,
+        cc: List<String> = emptyList(),
+        bcc: List<String> = emptyList(),
+        subject: String,
+        textBody: String,
+        htmlBody: String? = null,
+        attachments: List<SendAttachment> = emptyList(),
+        replyToMessageId: String? = null
+    ): ProviderSendResult = withContext(Dispatchers.IO) {
+        try {
+            val account = emailAccountDao.getAccountById(accountId)
+                ?: return@withContext ProviderSendResult(false, errorMessage = "Account not found")
+
+            providerManager.sendMessage(
+                accountId = account.id,
+                token = account.token,
+                providerName = account.providerName,
+                to = to,
+                cc = cc,
+                bcc = bcc,
+                subject = subject,
+                textBody = textBody,
+                htmlBody = htmlBody,
+                attachments = attachments,
+                replyToMessageId = replyToMessageId
+            )
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "sendMessage failed: ${e.message}")
+            ProviderSendResult(false, errorMessage = e.message ?: "Failed to send message")
+        }
+    }
+
+    /**
+     * Check if the current active account supports sending emails.
+     */
+    suspend fun activeAccountSupportsSending(): Boolean = withContext(Dispatchers.IO) {
+        val account = activeAccount.firstOrNull() ?: return@withContext false
+        providerManager.getProviderByName(account.providerName).supportsSending()
     }
 
     suspend fun autoCleanExpired() = withContext(Dispatchers.IO) {

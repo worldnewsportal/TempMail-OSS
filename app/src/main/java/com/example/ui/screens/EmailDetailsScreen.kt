@@ -45,6 +45,8 @@ import java.util.*
 fun EmailDetailsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
+    onReply: (MessageEntity) -> Unit = {},
+    onForward: (MessageEntity) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val message by viewModel.selectedMessage.collectAsState()
@@ -88,6 +90,12 @@ fun EmailDetailsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onReply(activeMsg) }) {
+                        Icon(imageVector = Icons.Default.Reply, contentDescription = "Reply")
+                    }
+                    IconButton(onClick = { onForward(activeMsg) }) {
+                        Icon(imageVector = Icons.Default.Forward, contentDescription = "Forward")
+                    }
                     IconButton(onClick = {
                         val isArchived = activeMsg.isArchived
                         viewModel.archiveMessage(activeMsg.id, !isArchived)
@@ -237,11 +245,39 @@ fun EmailDetailsScreen(
                 }
             }
 
-            // Messages Toolbar
+            // Messages Toolbar - Reply/Forward
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Reply button
+                OutlinedButton(
+                    onClick = { onReply(activeMsg) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(imageVector = Icons.Default.Reply, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Reply")
+                }
+
+                // Forward button
+                OutlinedButton(
+                    onClick = { onForward(activeMsg) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(imageVector = Icons.Default.Forward, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Forward")
+                }
+            }
+
+            // Copy/Share Toolbar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(

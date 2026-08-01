@@ -44,3 +44,21 @@ data class ProviderMessageDetail(
     val attachments: List<ProviderAttachment> = emptyList()
 )
 
+/**
+ * Result of a send message operation.
+ */
+data class ProviderSendResult(
+    val isSuccess: Boolean,
+    val messageId: String? = null,
+    val errorMessage: String? = null
+)
+
+/**
+ * Represents an attachment to be sent with an email.
+ */
+data class SendAttachment(
+    val filename: String,
+    val contentType: String,
+    val contentBase64: String
+)
+

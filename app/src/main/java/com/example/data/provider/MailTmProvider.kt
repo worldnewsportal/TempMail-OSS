@@ -152,6 +152,61 @@ class MailTmProvider(private val api: MailTmApi) : EmailProvider {
         }
     }
 
+    override suspend fun sendMessage(
+        accountId: String,
+        token: String,
+        to: List<String>,
+        cc: List<String>,
+        bcc: List<String>,
+        subject: String,
+        textBody: String,
+        htmlBody: String?,
+        attachments: List<SendAttachment>,
+        replyToMessageId: String?
+    ): ProviderSendResult {
+        return try {
+            val sendAttachments = attachments.map { att ->
+                MailTmSendAttachmentItem(
+                    filename = att.filename,
+                    contentType = att.contentType,
+                    content = att.contentBase64
+                )
+            }
+
+            val request = MailTmSendMessageRequest(
+                to = to,
+                cc = cc,
+                bcc = bcc,
+                subject = subject,
+                text = textBody,
+                html = htmlBody,
+                attachments = sendAttachments,
+                inReplyTo = replyToMessageId
+            )
+
+            val response = api.sendMessage("Bearer $token", request)
+            if (response.isSuccessful && response.body() != null) {
+                ProviderSendResult(
+                    isSuccess = true,
+                    messageId = response.body()!!.id
+                )
+            } else {
+                ProviderSendResult(
+                    isSuccess = false,
+                    errorMessage = "Send failed: HTTP ${response.code()} - ${response.errorBody()?.string()?.take(200)}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MailTmProvider", "sendMessage failed: ${e.message}")
+            ProviderSendResult(
+                isSuccess = false,
+                errorMessage = e.message ?: "Unknown error sending message"
+            )
+        }
+    }
+
+    override fun supportsSending(): Boolean = true
+
     private fun parseIsoTimestamp(isoString: String?): Long {
         if (isoString.isNullOrBlank()) return System.currentTimeMillis()
         return try {

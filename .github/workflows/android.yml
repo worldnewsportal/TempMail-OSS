@@ -48,3 +48,61 @@ jobs:
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Generate SHA256 Checksums
+        run: |
+          cd app/build/outputs/apk/release
+          sha256sum app-release.apk > app-release.apk.sha256
+          cat app-release.apk.sha256
+          cd ../debug
+          sha256sum app-debug.apk > app-debug.apk.sha256
+          cat app-debug.apk.sha256
+
+      - name: Get APK Size Info
+        id: apk-info
+        run: |
+          RELEASE_SIZE=$(stat -c%s "app/build/outputs/apk/release/app-release.apk")
+          DEBUG_SIZE=$(stat -c%s "app/build/outputs/apk/debug/app-debug.apk")
+          RELEASE_SIZE_MB=$(echo "scale=2; $RELEASE_SIZE / 1048576" | bc)
+          DEBUG_SIZE_MB=$(echo "scale=2; $DEBUG_SIZE / 1048576" | bc)
+          echo "release_size_mb=$RELEASE_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "debug_size_mb=$DEBUG_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "### APK Build Info" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| app-release.apk | ${RELEASE_SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
+          echo "| app-debug.apk | ${DEBUG_SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: TempMail v1.0.${{ github.run_number }}
+          body: |
+            ## TempMail OSS - Build #${{ github.run_number }}
+
+            **Commit:** `${{ github.sha }}`
+            **Branch:** `${{ github.ref_name }}`
+            **Triggered by:** ${{ github.actor }}
+
+            ### Build Artifacts
+            | File | Size | Description |
+            |------|------|-------------|
+            | `app-release.apk` | ${{ steps.apk-info.outputs.release_size_mb }} MB | Production release build |
+            | `app-debug.apk` | ${{ steps.apk-info.outputs.debug_size_mb }} MB | Debug build with logging |
+
+            ### What's Changed
+            ${{ github.event.head_commit.message }}
+
+            ### Checksums
+            See the `.sha256` files for SHA256 verification of each APK.
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

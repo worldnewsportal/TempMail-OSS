@@ -124,4 +124,39 @@
     <string name="provider_mail_tm">Mail.tm Provider</string>
     <string name="provider_guerrilla">GuerrillaMail Provider (Fallback)</string>
     <string name="provider_onesec">1secmail Provider (Fallback)</string>
+
+    <!-- Compose Email -->
+    <string name="compose_title">Compose Email</string>
+    <string name="compose_to_hint">Add recipients</string>
+    <string name="compose_cc_hint">Add CC recipients</string>
+    <string name="compose_bcc_hint">Add BCC recipients</string>
+    <string name="compose_subject_hint">Subject</string>
+    <string name="compose_body_hint">Compose email…</string>
+    <string name="compose_send">Send</string>
+    <string name="compose_attach">Attach file</string>
+    <string name="compose_discard">Discard</string>
+    <string name="compose_discard_title">Discard email?</string>
+    <string name="compose_discard_message">Your message will be lost. Are you sure you want to discard this email?</string>
+    <string name="compose_sending">Sending…</string>
+    <string name="compose_sent">Email sent successfully!</string>
+    <string name="compose_send_failed">Failed to send: %1$s</string>
+    <string name="compose_no_account">No active email account to send from</string>
+    <string name="compose_sending_not_supported">Sending not supported by this email provider. Please create a Mail.tm account.</string>
+    <string name="compose_reply_prefix">Re:</string>
+    <string name="compose_forward_prefix">Fwd:</string>
+    <string name="compose_original_message">--- Original Message ---</string>
+    <string name="compose_forwarded_message">--- Forwarded Message ---</string>
+    <string name="compose_attachments">Attachments (%1$d)</string>
+    <string name="compose_from">From</string>
+    <string name="compose_bold">Bold</string>
+    <string name="compose_italic">Italic</string>
+    <string name="compose_underline">Underline</string>
+    <string name="compose_strikethrough">Strikethrough</string>
+    <string name="compose_font_size">Font size</string>
+    <string name="compose_insert_link">Insert link</string>
+    <string name="compose_emoji">Emoji</string>
+    <string name="compose_cc_bcc">CC/BCC</string>
+    <string name="compose_keep_editing">Keep editing</string>
+    <string name="compose_reply">Reply</string>
+    <string name="compose_forward">Forward</string>
 </resources>

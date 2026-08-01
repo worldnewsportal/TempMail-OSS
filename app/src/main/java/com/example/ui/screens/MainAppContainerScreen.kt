@@ -34,6 +34,19 @@ sealed class NavTab(val route: String, val icon: androidx.compose.ui.graphics.ve
     object About : NavTab("about", Icons.Default.Info, R.string.nav_about)
 }
 
+/**
+ * Represents the current compose email state (new, reply, or forward).
+ */
+data class ComposeState(
+    val isComposing: Boolean = false,
+    val replyTo: String? = null,
+    val replyToSubject: String? = null,
+    val replyToBody: String? = null,
+    val forwardFrom: String? = null,
+    val forwardSubject: String? = null,
+    val forwardBody: String? = null
+)
+
 @Composable
 fun MainAppContainerScreen(
     viewModel: MainViewModel,
@@ -41,7 +54,8 @@ fun MainAppContainerScreen(
 ) {
     var activeTab by remember { mutableStateOf<NavTab>(NavTab.Inbox) }
     var currentDetailMessage by remember { mutableStateOf<MessageEntity?>(null) }
-    
+    var composeState by remember { mutableStateOf(ComposeState()) }
+
     val context = LocalContext.current
 
     // Observe Toast notifications
@@ -49,6 +63,26 @@ fun MainAppContainerScreen(
         viewModel.toastMessage.collectLatest { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // Compose email overlay
+    if (composeState.isComposing) {
+        ComposeEmailScreen(
+            viewModel = viewModel,
+            onSent = {
+                composeState = ComposeState()
+            },
+            onDiscard = {
+                composeState = ComposeState()
+            },
+            replyTo = composeState.replyTo,
+            replyToSubject = composeState.replyToSubject,
+            replyToBody = composeState.replyToBody,
+            forwardFrom = composeState.forwardFrom,
+            forwardSubject = composeState.forwardSubject,
+            forwardBody = composeState.forwardBody
+        )
+        return
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -84,7 +118,8 @@ fun MainAppContainerScreen(
                         when (activeTab) {
                             NavTab.Inbox -> InboxScreen(
                                 viewModel = viewModel,
-                                onNavigateToDetail = { currentDetailMessage = it }
+                                onNavigateToDetail = { currentDetailMessage = it },
+                                onCompose = { composeState = ComposeState(isComposing = true) }
                             )
                             NavTab.Emails -> ManageEmailsScreen(viewModel = viewModel)
                             NavTab.Search -> SearchScreen(
@@ -107,7 +142,23 @@ fun MainAppContainerScreen(
                             if (currentDetailMessage != null) {
                                 EmailDetailsScreen(
                                     viewModel = viewModel,
-                                    onBack = { currentDetailMessage = null }
+                                    onBack = { currentDetailMessage = null },
+                                    onReply = { message ->
+                                        composeState = ComposeState(
+                                            isComposing = true,
+                                            replyTo = message.senderEmail,
+                                            replyToSubject = message.subject,
+                                            replyToBody = message.textBody
+                                        )
+                                    },
+                                    onForward = { message ->
+                                        composeState = ComposeState(
+                                            isComposing = true,
+                                            forwardFrom = "${message.senderName} <${message.senderEmail}>",
+                                            forwardSubject = message.subject,
+                                            forwardBody = message.textBody
+                                        )
+                                    }
                                 )
                             } else {
                                 // Default details placeholder view with custom generated empty_inbox illustration!
@@ -120,6 +171,19 @@ fun MainAppContainerScreen(
         } else {
             // Mobile Stack Layout: Bottom Navigation Bar
             Scaffold(
+                floatingActionButton = {
+                    if (activeTab == NavTab.Inbox || activeTab == NavTab.Emails) {
+                        ExtendedFloatingActionButton(
+                            onClick = {
+                                composeState = ComposeState(isComposing = true)
+                            },
+                            icon = { Icon(imageVector = Icons.Default.Edit, contentDescription = "Compose") },
+                            text = { Text("Compose") },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                },
                 bottomBar = {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -148,13 +212,30 @@ fun MainAppContainerScreen(
                     if (currentDetailMessage != null) {
                         EmailDetailsScreen(
                             viewModel = viewModel,
-                            onBack = { currentDetailMessage = null }
+                            onBack = { currentDetailMessage = null },
+                            onReply = { message ->
+                                composeState = ComposeState(
+                                    isComposing = true,
+                                    replyTo = message.senderEmail,
+                                    replyToSubject = message.subject,
+                                    replyToBody = message.textBody
+                                )
+                            },
+                            onForward = { message ->
+                                composeState = ComposeState(
+                                    isComposing = true,
+                                    forwardFrom = "${message.senderName} <${message.senderEmail}>",
+                                    forwardSubject = message.subject,
+                                    forwardBody = message.textBody
+                                )
+                            }
                         )
                     } else {
                         when (activeTab) {
                             NavTab.Inbox -> InboxScreen(
                                 viewModel = viewModel,
-                                onNavigateToDetail = { currentDetailMessage = it }
+                                onNavigateToDetail = { currentDetailMessage = it },
+                                onCompose = { composeState = ComposeState(isComposing = true) }
                             )
                             NavTab.Emails -> ManageEmailsScreen(viewModel = viewModel)
                             NavTab.Search -> SearchScreen(

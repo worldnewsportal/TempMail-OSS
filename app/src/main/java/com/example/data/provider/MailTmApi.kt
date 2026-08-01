@@ -91,6 +91,33 @@ data class MailTmMessageDetailResponse(
     val attachments: List<MailTmAttachmentItem>? = null
 )
 
+@JsonClass(generateAdapter = true)
+data class MailTmSendMessageRequest(
+    val to: List<String>,
+    val cc: List<String> = emptyList(),
+    val bcc: List<String> = emptyList(),
+    val subject: String,
+    val text: String,
+    val html: String? = null,
+    val attachments: List<MailTmSendAttachmentItem> = emptyList(),
+    val inReplyTo: String? = null,
+    val references: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class MailTmSendAttachmentItem(
+    val filename: String,
+    val contentType: String,
+    val content: String,
+    val disposition: String = "attachment",
+    val encoding: String = "base64"
+)
+
+@JsonClass(generateAdapter = true)
+data class MailTmSendMessageResponse(
+    val id: String
+)
+
 interface MailTmApi {
     @GET("domains")
     suspend fun getDomains(@Query("page") page: Int = 1): Response<MailTmDomainsResponse>
@@ -115,4 +142,10 @@ interface MailTmApi {
         @Header("Authorization") authHeader: String,
         @Path("id") messageId: String
     ): Response<Unit>
+
+    @POST("messages")
+    suspend fun sendMessage(
+        @Header("Authorization") authHeader: String,
+        @Body request: MailTmSendMessageRequest
+    ): Response<MailTmSendMessageResponse>
 }
