@@ -42,7 +42,7 @@ object UnityAdsManager {
     private const val TAG = "UnityAdsManager"
 
     // Unity Ads Game ID — change this to your production Game ID when ready
-    private const val GAME_ID_ANDROID = "800110518"
+    private const val GAME_ID_ANDROID = "6043972"
     private const val BANNER_PLACEMENT = "Banner_Android"
     private const val REWARDED_PLACEMENT = "Rewarded_Android"
 
