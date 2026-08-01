@@ -23,7 +23,6 @@ data class AppSettings(
     val vibrationEnabled: Boolean = true,
     val deleteExpiredAuto: Boolean = true,
     val downloadFolder: String = "Downloads/TempMailOSS",
-    val adsTestMode: Boolean = false,
     val adFreeUntil: Long = 0L,
     val premiumDomainsUnlockedUntil: Long = 0L
 )
@@ -39,7 +38,6 @@ class AppSettingsRepository(private val context: Context) {
         private val KEY_VIBRATION = booleanPreferencesKey("vibration_enabled")
         private val KEY_DELETE_EXPIRED = booleanPreferencesKey("delete_expired_auto")
         private val KEY_DOWNLOAD_FOLDER = stringPreferencesKey("download_folder")
-        private val KEY_ADS_TEST_MODE = booleanPreferencesKey("ads_test_mode")
         private val KEY_AD_FREE_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("ad_free_until")
         private val KEY_PREMIUM_DOMAINS_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("premium_domains_until")
     }
@@ -54,7 +52,6 @@ class AppSettingsRepository(private val context: Context) {
             vibrationEnabled = prefs[KEY_VIBRATION] ?: true,
             deleteExpiredAuto = prefs[KEY_DELETE_EXPIRED] ?: true,
             downloadFolder = prefs[KEY_DOWNLOAD_FOLDER] ?: "Downloads/TempMailOSS",
-            adsTestMode = prefs[KEY_ADS_TEST_MODE] ?: false,
             adFreeUntil = prefs[KEY_AD_FREE_UNTIL] ?: 0L,
             premiumDomainsUnlockedUntil = prefs[KEY_PREMIUM_DOMAINS_UNTIL] ?: 0L
         )
@@ -86,10 +83,6 @@ class AppSettingsRepository(private val context: Context) {
 
     suspend fun updateDeleteExpiredAuto(autoDelete: Boolean) {
         context.dataStore.edit { it[KEY_DELETE_EXPIRED] = autoDelete }
-    }
-
-    suspend fun updateAdsTestMode(testMode: Boolean) {
-        context.dataStore.edit { it[KEY_ADS_TEST_MODE] = testMode }
     }
 
     suspend fun updateAdFreeUntil(timestamp: Long) {

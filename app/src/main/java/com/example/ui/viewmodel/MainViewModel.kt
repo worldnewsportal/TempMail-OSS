@@ -423,12 +423,6 @@ class MainViewModel(
         }
     }
 
-    fun setAdsTestMode(testMode: Boolean) {
-        viewModelScope.launch {
-            settingsRepo.updateAdsTestMode(testMode)
-        }
-    }
-
     fun getCacheSizeString(): String {
         val bytes = settingsRepo.calculateCacheSizeBytes()
         val kb = bytes / 1024.0
