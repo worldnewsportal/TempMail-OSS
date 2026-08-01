@@ -2,33 +2,22 @@ package com.example.ads
 
 import android.content.Context
 import android.util.Log
-import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.unity3d.ads.IUnityAdsInitializationListener
 import com.unity3d.ads.UnityAds
+import com.unity3d.ads.IUnityAdsLoadListener
+import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.services.banners.BannerView
 import com.unity3d.services.banners.UnityBannerSize
 import kotlinx.coroutines.CoroutineScope
@@ -38,66 +27,36 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import com.example.data.preferences.AppSettingsRepository
 
+/**
+ * Unity Ads Manager — Handles initialization, banner ads, interstitial ads,
+ * and rewarded video ads using the Unity Ads SDK.
+ *
+ * IMPORTANT NOTES FOR PRODUCTION:
+ * - Make sure Placements (Banner_Android, Interstitial_Android, Rewarded_Android)
+ *   are created and enabled in Unity Dashboard for Game ID 6043972
+ * - Banner ads may have low fill rate in some regions. Interstitial ads
+ *   typically have much better fill rates.
+ * - It can take up to 1 hour after first init for Unity's servers to
+ *   start serving real ads to a new Game ID / Placement.
+ * - If ads don't show immediately, check logcat for "UnityAdsManager" tags.
+ */
 object UnityAdsManager {
     private const val TAG = "UnityAdsManager"
 
-    // Unity Ads Game ID — change this to your production Game ID when ready
+    // Production Unity Ads Game ID
     private const val GAME_ID_ANDROID = "6043972"
+
+    // Placement IDs — MUST match exactly what's configured in Unity Dashboard
     private const val BANNER_PLACEMENT = "Banner_Android"
+    private const val INTERSTITIAL_PLACEMENT = "Interstitial_Android"
     private const val REWARDED_PLACEMENT = "Rewarded_Android"
 
     var isInitialized = false
         private set
 
-    // Track whether initialization is in progress to prevent duplicate calls
     private var isInitializing = false
 
-    fun showRewardedAd(
-        activity: android.app.Activity,
-        placementId: String = REWARDED_PLACEMENT,
-        onComplete: () -> Unit,
-        onFailed: () -> Unit
-    ) {
-        if (!isInitialized) {
-            Log.w(TAG, "Cannot show rewarded ad — Unity Ads not initialized yet. Attempting re-init.")
-            // Attempt to initialize if not already done, then fail gracefully
-            initialize(activity)
-            onFailed()
-            return
-        }
-
-        Log.d(TAG, "Loading rewarded ad for placement: $placementId")
-        UnityAds.load(placementId, object : com.unity3d.ads.IUnityAdsLoadListener {
-            override fun onUnityAdsAdLoaded(loadedPlacementId: String?) {
-                Log.i(TAG, "Rewarded ad loaded, showing...")
-                UnityAds.show(activity, placementId, object : com.unity3d.ads.IUnityAdsShowListener {
-                    override fun onUnityAdsShowFailure(showPlacementId: String?, error: UnityAds.UnityAdsShowError?, message: String?) {
-                        Log.e(TAG, "Rewarded ad show failure: $message (error: $error)")
-                        onFailed()
-                    }
-                    override fun onUnityAdsShowStart(showPlacementId: String?) {
-                        Log.d(TAG, "Rewarded ad started showing")
-                    }
-                    override fun onUnityAdsShowClick(showPlacementId: String?) {
-                        Log.d(TAG, "Rewarded ad clicked")
-                    }
-                    override fun onUnityAdsShowComplete(showPlacementId: String?, state: UnityAds.UnityAdsShowCompletionState?) {
-                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                            Log.i(TAG, "Rewarded ad watched completely — granting reward")
-                            onComplete()
-                        } else {
-                            Log.w(TAG, "Rewarded ad not completed fully (state: $state)")
-                            onFailed()
-                        }
-                    }
-                })
-            }
-            override fun onUnityAdsFailedToLoad(loadPlacementId: String?, error: UnityAds.UnityAdsLoadError?, message: String?) {
-                Log.e(TAG, "Rewarded ad failed to load: $message (error: $error)")
-                onFailed()
-            }
-        })
-    }
+    // ========== INITIALIZATION ==========
 
     fun initialize(context: Context) {
         if (isInitialized || isInitializing) return
@@ -107,69 +66,44 @@ object UnityAdsManager {
             try {
                 val settingsRepo = AppSettingsRepository(context)
                 val settings = settingsRepo.settingsFlow.first()
-                // Use the adsTestMode setting directly.
-                // Production mode (false) serves real ads; Test mode (true) serves test ads.
-                val effectiveTestMode = settings.adsTestMode
+                val testMode = settings.adsTestMode
                 withContext(Dispatchers.Main) {
-                    initializeWithTestMode(context.applicationContext, effectiveTestMode)
-                    isInitializing = false
+                    doInitialize(context.applicationContext, testMode)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    // Fallback to production mode if we can't read settings
                     Log.w(TAG, "Failed to read settings, defaulting to production mode", e)
-                    initializeWithTestMode(context.applicationContext, false)
-                    isInitializing = false
+                    doInitialize(context.applicationContext, false)
                 }
             }
         }
     }
 
-    /**
-     * Detect well-known Unity Ads test Game IDs.
-     * Test Game IDs only work when testMode=true in UnityAds.initialize().
-     * Running them in production mode causes initialization to fail silently.
-     */
-    private fun isTestGameId(gameId: String): Boolean {
-        val knownTestIds = setOf(
-            "800110518", // Unity's official Android test Game ID
-            "4089993",
-            "3125659"
-        )
-        return gameId in knownTestIds
-    }
-
-    private fun isValidGameId(gameId: String): Boolean {
-        // Validation for Unity Game ID:
-        // 1. Not null or empty
-        // 2. Contains only digits
-        // 3. Length between 5 and 12 digits (Unity IDs can vary in length)
-        if (gameId.isBlank()) return false
-        if (!gameId.all { it.isDigit() }) return false
-        if (gameId.length !in 5..12) return false
-        return true
-    }
-
-    private fun initializeWithTestMode(context: Context, testMode: Boolean) {
+    private fun doInitialize(context: Context, testMode: Boolean) {
         if (isInitialized) return
 
-        if (!isValidGameId(GAME_ID_ANDROID)) {
-            Log.e(TAG, "CRITICAL ERROR: Unity Game ID '$GAME_ID_ANDROID' is invalid! It must be a 5-12 digit number. Ads will not initialize.")
-            isInitialized = false
-            isInitializing = false
-            return
-        }
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "Initializing Unity Ads SDK...")
+        Log.i(TAG, "  Game ID: $GAME_ID_ANDROID")
+        Log.i(TAG, "  Test Mode: $testMode")
+        Log.i(TAG, "  Banner Placement: $BANNER_PLACEMENT")
+        Log.i(TAG, "  Interstitial Placement: $INTERSTITIAL_PLACEMENT")
+        Log.i(TAG, "  Rewarded Placement: $REWARDED_PLACEMENT")
+        Log.i(TAG, "========================================")
 
         try {
-            Log.d(TAG, "Initializing Unity Ads with Game ID: $GAME_ID_ANDROID, testMode: $testMode")
             UnityAds.initialize(
-                context.applicationContext,
+                context,
                 GAME_ID_ANDROID,
                 testMode,
                 object : IUnityAdsInitializationListener {
                     override fun onInitializationComplete() {
                         isInitialized = true
-                        Log.i(TAG, "Unity Ads initialized successfully (testMode=$testMode)!")
+                        isInitializing = false
+                        Log.i(TAG, "✅ Unity Ads SDK initialized successfully!")
+                        Log.i(TAG, "   Test mode: $testMode")
+                        Log.i(TAG, "   If this is a new Game ID, real ads may take up to 1 hour to start serving.")
+                        Log.i(TAG, "   Check Unity Dashboard > Monetization > Placements to verify setup.")
                     }
 
                     override fun onInitializationFailed(
@@ -177,16 +111,131 @@ object UnityAdsManager {
                         message: String?
                     ) {
                         isInitialized = false
-                        Log.e(TAG, "Unity Ads initialization failed: $message (Error: $error)")
+                        isInitializing = false
+                        Log.e(TAG, "❌ Unity Ads initialization FAILED!")
+                        Log.e(TAG, "   Error: $error")
+                        Log.e(TAG, "   Message: $message")
+                        Log.e(TAG, "   Game ID: $GAME_ID_ANDROID")
+                        when (error) {
+                            UnityAds.UnityAdsInitializationError.INTERNAL_ERROR ->
+                                Log.e(TAG, "   → Internal error. Check internet connection and try again.")
+                            UnityAds.UnityAdsInitializationError.INVALID_ACTIVITY ->
+                                Log.e(TAG, "   → Invalid activity. Make sure initialize() is called with application context.")
+                            UnityAds.UnityAdsInitializationError.AD_BLOCKER_DETECTED ->
+                                Log.e(TAG, "   → Ad blocker detected! Disable ad blockers to use Unity Ads.")
+                            UnityAds.UnityAdsInitializationError.NO_FILL ->
+                                Log.e(TAG, "   → No fill — Unity servers have no ads for this Game ID yet.")
+                            else ->
+                                Log.e(TAG, "   → Unknown error. Verify Game ID at https://dashboard.unity3d.com")
+                        }
                     }
                 }
             )
         } catch (e: Throwable) {
             isInitialized = false
-            Log.e(TAG, "Error initializing Unity Ads: ${e.message}")
+            isInitializing = false
+            Log.e(TAG, "❌ Exception during Unity Ads init: ${e.message}", e)
         }
     }
 
+    // ========== REWARDED ADS ==========
+
+    fun showRewardedAd(
+        activity: android.app.Activity,
+        placementId: String = REWARDED_PLACEMENT,
+        onComplete: () -> Unit,
+        onFailed: () -> Unit
+    ) {
+        if (!isInitialized) {
+            Log.e(TAG, "Cannot show rewarded ad — SDK not initialized")
+            onFailed()
+            return
+        }
+
+        Log.d(TAG, "Loading rewarded ad: $placementId")
+        UnityAds.load(placementId, object : IUnityAdsLoadListener {
+            override fun onUnityAdsAdLoaded(placement: String?) {
+                Log.i(TAG, "✅ Rewarded ad loaded, showing...")
+                UnityAds.show(activity, placementId, object : IUnityAdsShowListener {
+                    override fun onUnityAdsShowFailure(placement: String?, error: UnityAds.UnityAdsShowError?, message: String?) {
+                        Log.e(TAG, "❌ Rewarded ad show failed: $message (error: $error)")
+                        onFailed()
+                    }
+                    override fun onUnityAdsShowStart(placement: String?) {
+                        Log.d(TAG, "Rewarded ad started")
+                    }
+                    override fun onUnityAdsShowClick(placement: String?) {
+                        Log.d(TAG, "Rewarded ad clicked")
+                    }
+                    override fun onUnityAdsShowComplete(placement: String?, state: UnityAds.UnityAdsShowCompletionState?) {
+                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                            Log.i(TAG, "✅ Rewarded ad watched completely — granting reward")
+                            onComplete()
+                        } else {
+                            Log.w(TAG, "Rewarded ad not completed fully (state: $state)")
+                            onFailed()
+                        }
+                    }
+                })
+            }
+            override fun onUnityAdsFailedToLoad(placement: String?, error: UnityAds.UnityAdsLoadError?, message: String?) {
+                Log.e(TAG, "❌ Rewarded ad failed to load: $message (error: $error)")
+                onFailed()
+            }
+        })
+    }
+
+    // ========== INTERSTITIAL ADS ==========
+
+    fun showInterstitialAd(
+        activity: android.app.Activity,
+        placementId: String = INTERSTITIAL_PLACEMENT,
+        onClosed: () -> Unit = {},
+        onFailed: () -> Unit = {}
+    ) {
+        if (!isInitialized) {
+            Log.e(TAG, "Cannot show interstitial ad — SDK not initialized")
+            onFailed()
+            return
+        }
+
+        Log.d(TAG, "Loading interstitial ad: $placementId")
+        UnityAds.load(placementId, object : IUnityAdsLoadListener {
+            override fun onUnityAdsAdLoaded(placement: String?) {
+                Log.i(TAG, "✅ Interstitial ad loaded, showing...")
+                UnityAds.show(activity, placementId, object : IUnityAdsShowListener {
+                    override fun onUnityAdsShowFailure(placement: String?, error: UnityAds.UnityAdsShowError?, message: String?) {
+                        Log.e(TAG, "❌ Interstitial ad show failed: $message (error: $error)")
+                        onFailed()
+                    }
+                    override fun onUnityAdsShowStart(placement: String?) {
+                        Log.d(TAG, "Interstitial ad started")
+                    }
+                    override fun onUnityAdsShowClick(placement: String?) {
+                        Log.d(TAG, "Interstitial ad clicked")
+                    }
+                    override fun onUnityAdsShowComplete(placement: String?, state: UnityAds.UnityAdsShowCompletionState?) {
+                        Log.i(TAG, "Interstitial ad closed")
+                        onClosed()
+                    }
+                })
+            }
+            override fun onUnityAdsFailedToLoad(placement: String?, error: UnityAds.UnityAdsLoadError?, message: String?) {
+                Log.e(TAG, "❌ Interstitial ad failed to load: $message (error: $error)")
+                onFailed()
+            }
+        })
+    }
+
+    // ========== BANNER AD COMPOSABLE ==========
+
+    /**
+     * Real Unity Banner Ad composable.
+     * Shows ONLY real Unity Ads banners — NO simulated/fake/placeholder ads.
+     * While loading: shows a compact loading indicator.
+     * If failed: shows a small "Ad unavailable" text (NOT a fake ad).
+     * When ad-free mode is active: shows nothing.
+     */
     @Composable
     fun UnityAdBanner(
         modifier: Modifier = Modifier,
@@ -194,251 +243,142 @@ object UnityAdsManager {
     ) {
         val context = LocalContext.current
         val settingsRepo = remember(context) { AppSettingsRepository(context) }
-        val settings by settingsRepo.settingsFlow.collectAsState(initial = com.example.data.preferences.AppSettings())
+        val settings by settingsRepo.settingsFlow.collectAsState(
+            initial = com.example.data.preferences.AppSettings()
+        )
         val isAdFree = System.currentTimeMillis() < settings.adFreeUntil
 
         if (isAdFree) {
-            // Ad-free mode active — show nothing
             Spacer(modifier = Modifier.height(0.dp))
             return
         }
 
-        var adLoadFailed by remember { mutableStateOf(false) }
         var isLoaded by remember { mutableStateOf(false) }
-        var retryCount by remember { mutableStateOf(0) }
+        var adLoadFailed by remember { mutableStateOf(false) }
+        var retryKey by remember { mutableIntStateOf(0) }
 
-        // Start initialization if not already done
+        // Initialize if needed
         LaunchedEffect(Unit) {
             if (!isInitialized && !isInitializing) {
                 initialize(context)
             }
         }
 
-        // Wait for initialization to complete before showing the banner
-        // Show simulated ad while initializing
+        // Not yet initialized — show loading
         if (!isInitialized) {
-            // Still initializing — show a lightweight placeholder
-            SimulatedUnobtrusiveAd(modifier = modifier)
-            return
-        }
-
-        if (!adLoadFailed) {
             Box(
                 modifier = modifier
                     .fillMaxWidth()
                     .height(50.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .testTag("unity_banner_container"),
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    .testTag("ad_init_loading"),
                 contentAlignment = Alignment.Center
             ) {
-                if (isLoaded) {
-                    // Actual banner will be shown via AndroidView below
-                } else {
-                    // Loading indicator while banner loads
-                    androidx.compose.material3.CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
-                }
-
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { ctx ->
-                        FrameLayout(ctx).apply {
-                            layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            try {
-                                val activity = generateSequence(ctx) { if (it is android.content.ContextWrapper) it.baseContext else null }
-                                    .filterIsInstance<android.app.Activity>()
-                                    .firstOrNull()
-
-                                if (activity == null) {
-                                    Log.e(TAG, "Context is not an Activity — cannot show banner")
-                                    adLoadFailed = true
-                                    return@apply
-                                }
-
-                                val bannerView = BannerView(activity, placementId, UnityBannerSize(320, 50))
-                                bannerView.listener = object : BannerView.IListener {
-                                    override fun onBannerLoaded(view: BannerView?) {
-                                        isLoaded = true
-                                        Log.i(TAG, "Banner ad loaded successfully for placement: $placementId")
-                                    }
-
-                                    override fun onBannerClick(view: BannerView?) {
-                                        Log.d(TAG, "Banner ad clicked")
-                                    }
-
-                                    override fun onBannerFailedToLoad(
-                                        view: BannerView?,
-                                        error: com.unity3d.services.banners.BannerErrorInfo?
-                                    ) {
-                                        adLoadFailed = true
-                                        Log.w(TAG, "Banner ad failed to load: ${error?.errorMessage} (error: ${error?.errorCode})")
-                                    }
-
-                                    override fun onBannerLeftApplication(view: BannerView?) {}
-
-                                    override fun onBannerShown(view: BannerView?) {
-                                        Log.d(TAG, "Banner ad shown on screen")
-                                    }
-                                }
-                                bannerView.load()
-                                addView(bannerView)
-                            } catch (e: Throwable) {
-                                adLoadFailed = true
-                                Log.e(TAG, "Error creating BannerView: ${e.message}", e)
-                            }
-                        }
-                    }
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
             }
-        } else {
-            // Banner failed to load — show high-fidelity simulated ad as fallback
-            SimulatedUnobtrusiveAd(modifier = modifier)
+            return
         }
-    }
 
-    @Composable
-    fun SimulatedUnobtrusiveAd(modifier: Modifier = Modifier) {
-        // Pool of beautifully curated ad sponsors to make the app feel alive and extremely premium
-        val sponsors = remember {
-            listOf(
-                SponsorInfo(
-                    title = "Unity Ads Engine",
-                    desc = "Monetize and acquire high-value players across top iOS & Android games seamlessly.",
-                    cta = "Learn More",
-                    colorStart = Color(0xFF047857),
-                    colorEnd = Color(0xFF065F46)
-                ),
-                SponsorInfo(
-                    title = "CyberShield Security VPN",
-                    desc = "Protect your online credentials and temporary email traffic with grade-A encryption.",
-                    cta = "Get Protected",
-                    colorStart = Color(0xFF1D4ED8),
-                    colorEnd = Color(0xFF1E3A8A)
-                ),
-                SponsorInfo(
-                    title = "CloudHost Pro",
-                    desc = "Host production servers, APIs, and databases on secure NVMe cloud containers globally.",
-                    cta = "Deploy Free",
-                    colorStart = Color(0xFF7C3AED),
-                    colorEnd = Color(0xFF5B21B6)
+        // Ad failed to load — show minimal retry area (NOT a fake ad)
+        if (adLoadFailed) {
+            TextButton(
+                onClick = {
+                    adLoadFailed = false
+                    isLoaded = false
+                    retryKey++
+                },
+                modifier = modifier
+                    .fillMaxWidth()
+                    .height(32.dp)
+                    .testTag("ad_retry")
+            ) {
+                Text(
+                    text = "Ad • Tap to retry",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                 )
-            )
+            }
+            return
         }
-        val sponsor = remember { sponsors.random() }
 
-        Card(
+        // Real Unity Banner
+        Box(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-                .testTag("simulated_ad_card"),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .height(50.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .testTag("unity_banner_container"),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                sponsor.colorStart.copy(alpha = 0.08f),
-                                sponsor.colorEnd.copy(alpha = 0.03f)
-                            )
-                        )
-                    )
-                    .padding(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Small "Ad" badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "Sponsored",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = sponsor.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Ad Info",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = sponsor.desc,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+            if (!isLoaded) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
                 )
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    FrameLayout(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        try {
+                            val activity = generateSequence(ctx) {
+                                if (it is android.content.ContextWrapper) it.baseContext else null
+                            }.filterIsInstance<android.app.Activity>().firstOrNull()
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = { /* Simulated action */ },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.testTag("ad_cta_button")
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = sponsor.cta,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
+                            if (activity == null) {
+                                Log.e(TAG, "❌ Banner: Context is not an Activity")
+                                adLoadFailed = true
+                                return@apply
+                            }
+
+                            val bannerView = BannerView(
+                                activity, placementId, UnityBannerSize(320, 50)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.Launch,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp)
-                            )
+                            bannerView.listener = object : BannerView.IListener {
+                                override fun onBannerLoaded(view: BannerView?) {
+                                    isLoaded = true
+                                    Log.i(TAG, "✅ REAL BANNER AD loaded! Placement: $placementId")
+                                }
+                                override fun onBannerClick(view: BannerView?) {
+                                    Log.d(TAG, "Banner clicked")
+                                }
+                                override fun onBannerFailedToLoad(
+                                    view: BannerView?,
+                                    error: com.unity3d.services.banners.BannerErrorInfo?
+                                ) {
+                                    adLoadFailed = true
+                                    Log.e(TAG, "❌ Banner FAILED to load! Placement: $placementId")
+                                    Log.e(TAG, "   Error: ${error?.errorCode} — ${error?.errorMessage}")
+                                    Log.e(TAG, "   This is COMMON for banner ads in Unity Ads.")
+                                    Log.e(TAG, "   Banner fill rates can be low, especially for new apps.")
+                                    Log.e(TAG, "   Interstitial and Rewarded ads typically have better fill rates.")
+                                    Log.e(TAG, "   Make sure placement '$placementId' exists in Unity Dashboard.")
+                                }
+                                override fun onBannerLeftApplication(view: BannerView?) {}
+                                override fun onBannerShown(view: BannerView?) {
+                                    Log.i(TAG, "✅ REAL BANNER AD displayed on screen!")
+                                }
+                            }
+                            bannerView.load()
+                            addView(bannerView)
+                        } catch (e: Throwable) {
+                            adLoadFailed = true
+                            Log.e(TAG, "❌ Banner exception: ${e.message}", e)
                         }
                     }
-                }
-            }
+                },
+                key = retryKey
+            )
         }
     }
-
-    private class SponsorInfo(
-        val title: String,
-        val desc: String,
-        val cta: String,
-        val colorStart: Color,
-        val colorEnd: Color
-    )
 }
