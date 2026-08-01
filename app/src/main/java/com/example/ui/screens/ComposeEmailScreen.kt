@@ -63,6 +63,9 @@ fun ComposeEmailScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Active account state for From field
+    val activeAccount by viewModel.activeAccount.collectAsState(initial = null)
+
     // Recipient fields
     var toText by remember { mutableStateOf("") }
     var ccText by remember { mutableStateOf("") }
@@ -245,7 +248,7 @@ fun ComposeEmailScreen(
             // From field (read-only)
             RecipientRow(
                 label = "From",
-                value = viewModel.activeAccount.collectAsState(initial = null).value?.address ?: "No active email",
+                value = activeAccount?.address ?: "No active email",
                 isReadOnly = true
             )
 

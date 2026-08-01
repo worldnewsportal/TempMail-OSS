@@ -62,18 +62,19 @@ class ProviderManager(
             if (provider is SimulationProvider) continue
             try {
                 val pDomains = provider.getAvailableDomains()
+                Log.d("ProviderManager", "Provider ${provider.providerName} returned domains: $pDomains")
                 for (domain in pDomains) {
                     domainsList.add(domain)
                     domainMap[domain] = provider
                 }
             } catch (e: Exception) {
-                // Ignore provider domain failures
+                Log.w("ProviderManager", "Provider ${provider.providerName} getAvailableDomains failed: ${e.message}")
             }
         }
 
         // Cache the mapping
         domainProviderMap = domainMap
-        Log.i("ProviderManager", "Available domains: $domainsList (mapped to ${domainMap.size} providers)")
+        Log.i("ProviderManager", "All available domains: $domainsList (mapped to ${domainMap.size} providers)")
         domainsList.distinct()
     }
 

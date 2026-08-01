@@ -6,15 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -30,12 +31,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.R
 
 /**
  * Change Email Dialog - All domains are REAL (no fake premium domains).
  * Custom username is sent to the real API.
+ *
+ * Uses a scrollable radio button list instead of DropdownMenu,
+ * because DropdownMenu inside AlertDialog has z-index/popup issues in Material3.
  */
 @Composable
 fun ChangeEmailDialog(
@@ -47,7 +52,6 @@ fun ChangeEmailDialog(
     var isCustom by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
     var selectedDomain by remember { mutableStateOf("") }
-    var dropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(availableDomains) {
         if (availableDomains.isNotEmpty() && (selectedDomain.isEmpty() || selectedDomain !in availableDomains)) {
@@ -109,7 +113,8 @@ fun ChangeEmailDialog(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Domain Selection Dropdown - All domains are real
+                // Domain Selection - Scrollable radio button list
+                // (Replaces DropdownMenu which doesn't work inside AlertDialog)
                 Text(
                     text = stringResource(id = R.string.domain_select),
                     style = MaterialTheme.typography.bodyMedium,
@@ -117,33 +122,42 @@ fun ChangeEmailDialog(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { dropdownExpanded = true }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (availableDomains.isEmpty()) {
                     Text(
-                        text = selectedDomain.ifEmpty { "Loading domains..." },
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
+                        text = "Loading domains...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
-                }
-
-                DropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false }
-                ) {
-                    availableDomains.forEach { dom ->
-                        DropdownMenuItem(
-                            text = { Text(dom) },
-                            onClick = {
-                                selectedDomain = dom
-                                dropdownExpanded = false
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        verticalArrangement = androidx.compose.foundation.lazy.Arrangement.spacedBy(0.dp)
+                    ) {
+                        items(availableDomains) { dom ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = (dom == selectedDomain),
+                                        onClick = { selectedDomain = dom },
+                                        role = Role.RadioButton
+                                    )
+                                    .padding(vertical = 4.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (dom == selectedDomain),
+                                    onClick = null // handled by selectable
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = dom,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
