@@ -4,6 +4,17 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * ProviderManager - Manages email providers with automatic failover.
+ *
+ * Only REAL providers are used:
+ * - Mail.tm (primary) - real API, supports custom username
+ * - 1secmail (fallback) - real API, supports custom username
+ * - 1secmail-alt (fallback) - real API, supports custom username
+ * - Offline (last resort) - no API, empty inbox
+ *
+ * No fake "Premium" domains. All domains are from real email services.
+ */
 class ProviderManager(
     private val mailTmProvider: MailTmProvider,
     private val guerrillaMailProvider: GuerrillaMailProvider = GuerrillaMailProvider(),
@@ -14,7 +25,6 @@ class ProviderManager(
     private var currentProviderIndex = 0
 
     suspend fun getActiveProvider(): EmailProvider = withContext(Dispatchers.IO) {
-        // Try current provider health check
         val current = providers[currentProviderIndex]
         if (current is SimulationProvider) {
             return@withContext current
@@ -23,8 +33,7 @@ class ProviderManager(
             return@withContext current
         }
 
-        // Automatic failover to next provider
-        Log.w("ProviderManager", "Provider ${current.providerName} failed health check. Automatic failover initiated.")
+        Log.w("ProviderManager", "Provider ${current.providerName} failed health check. Failover initiated.")
         for (i in providers.indices) {
             val provider = providers[i]
             if (provider is SimulationProvider) continue
@@ -34,25 +43,24 @@ class ProviderManager(
                 return@withContext provider
             }
         }
-        // Fall back to GuerrillaMail if all fail
         guerrillaMailProvider
     }
 
+    /**
+     * Get all available domains from REAL providers only.
+     * No fake/simulated domains.
+     */
     suspend fun getAllAvailableDomains(): List<String> = withContext(Dispatchers.IO) {
         val domainsList = mutableListOf<String>()
-        // Add live domains
         for (provider in providers) {
-            if (provider !is SimulationProvider) {
-                try {
-                    val pDomains = provider.getAvailableDomains()
-                    domainsList.addAll(pDomains)
-                } catch (e: Exception) {
-                    // Ignore
-                }
+            if (provider is SimulationProvider) continue
+            try {
+                val pDomains = provider.getAvailableDomains()
+                domainsList.addAll(pDomains)
+            } catch (e: Exception) {
+                // Ignore provider domain failures
             }
         }
-        // Add premium simulated domains to guarantee > 50 domains always
-        domainsList.addAll(simulationProvider.domains)
         domainsList.distinct()
     }
 
@@ -60,10 +68,8 @@ class ProviderManager(
         customUsername: String? = null,
         domain: String? = null
     ): ProviderAccountResult = withContext(Dispatchers.IO) {
-        if (domain != null && simulationProvider.domains.contains(domain)) {
-            return@withContext simulationProvider.createAccount(customUsername, domain)
-        }
         var lastException: Exception? = null
+        // Try real providers first, skip SimulationProvider
         for (i in providers.indices) {
             val provider = providers[(currentProviderIndex + i) % providers.size]
             if (provider is SimulationProvider) continue
@@ -76,8 +82,9 @@ class ProviderManager(
                 Log.w("ProviderManager", "createAccount failed on ${provider.providerName}: ${e.message}. Trying next...")
             }
         }
-        // If all fail, use fallback provider directly
-        guerrillaMailProvider.createAccount(customUsername, domain)
+        // If all real providers fail, use offline provider
+        Log.w("ProviderManager", "All real providers failed. Using offline provider.")
+        simulationProvider.createAccount(customUsername, domain)
     }
 
     fun getProviderByName(name: String): EmailProvider {

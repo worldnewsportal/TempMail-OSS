@@ -199,6 +199,28 @@ class EmailRepository(
         messageDao.deleteAllForAccount(accountId)
     }
 
+    suspend fun deleteMultipleMessages(accountId: String, messageIds: List<String>) = withContext(Dispatchers.IO) {
+        messageDao.deleteMessagesByIds(messageIds)
+        // Also try to delete from remote
+        try {
+            val account = emailAccountDao.getAccountById(accountId)
+            if (account != null && !account.isExpired) {
+                val provider = providerManager.getProviderByName(account.providerName)
+                for (msgId in messageIds) {
+                    try {
+                        provider.deleteMessage(account.id, account.token, msgId)
+                    } catch (_: Exception) { }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Failed to delete remote messages: ${e.message}")
+        }
+    }
+
+    suspend fun getMessageCount(accountId: String): Int = withContext(Dispatchers.IO) {
+        messageDao.getMessageCount(accountId)
+    }
+
     suspend fun autoCleanExpired() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val deletedCount = emailAccountDao.deleteExpiredAccounts(now)

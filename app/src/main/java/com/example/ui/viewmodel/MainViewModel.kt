@@ -373,6 +373,16 @@ class MainViewModel(
         }
     }
 
+    fun deleteMultipleMessages(accountId: String, messageIds: List<String>) {
+        viewModelScope.launch {
+            repo.deleteMultipleMessages(accountId, messageIds)
+            if (_selectedMessage.value?.id in messageIds) {
+                selectMessage(null)
+            }
+            showToast("${messageIds.size} messages deleted")
+        }
+    }
+
     fun archiveMessage(messageId: String, archive: Boolean) {
         viewModelScope.launch {
             repo.archiveMessage(messageId, archive)

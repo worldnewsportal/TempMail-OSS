@@ -44,6 +44,12 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE accountId = :accountId")
     suspend fun deleteAllForAccount(accountId: String)
 
+    @Query("DELETE FROM messages WHERE id IN (:messageIds)")
+    suspend fun deleteMessagesByIds(messageIds: List<String>)
+
+    @Query("SELECT COUNT(*) FROM messages WHERE accountId = :accountId")
+    suspend fun getMessageCount(accountId: String): Int
+
     @Query("""
         SELECT * FROM messages 
         WHERE accountId = :accountId AND (

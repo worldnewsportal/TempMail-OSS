@@ -1,11 +1,20 @@
 package com.example.data.provider
 
+import android.util.Log
 import java.util.UUID
 
+/**
+ * GuerrillaMailProvider - Uses the 1secmail API for real email functionality
+ *
+ * This provider uses the 1secmail.com API (which is free and requires no API key)
+ * to create REAL temporary email accounts that can actually receive messages.
+ *
+ * Custom username support: YES - the username is sent to the real API.
+ */
 class GuerrillaMailProvider : EmailProvider {
-    override val providerName: String = "GuerrillaMail (Fallback)"
+    override val providerName: String = "1secmail"
 
-    private val domains = listOf("guerrillamail.com", "sharklasers.com", "guerrillamail.org")
+    private val domains = listOf("1secmail.com", "1secmail.org", "1secmail.net", "esiix.com", "wwjmp.com", "xojxe.com", "yoggm.com")
 
     override suspend fun healthCheck(): Boolean = true
 
@@ -18,21 +27,23 @@ class GuerrillaMailProvider : EmailProvider {
         val selectedDomain = if (!domain.isNullOrBlank() && domains.contains(domain)) {
             domain
         } else {
-            domains.first()
+            domains.random()
         }
         val username = if (!customUsername.isNullOrBlank()) {
-            customUsername.lowercase().replace(Regex("[^a-z0-9]"), "")
+            customUsername.lowercase().replace(Regex("[^a-z0-9._-]"), "")
         } else {
-            "gm" + UUID.randomUUID().toString().replace("-", "").take(8)
+            "tm" + UUID.randomUUID().toString().replace("-", "").take(10)
         }
 
         val fullAddress = "$username@$selectedDomain"
+        // 1secmail doesn't require account creation - any address is valid
+        // We store the login as the token for API calls
         return ProviderAccountResult(
-            id = UUID.randomUUID().toString(),
+            id = fullAddress,
             address = fullAddress,
             username = username,
             domain = selectedDomain,
-            token = "gm_token_${UUID.randomUUID()}",
+            token = "$username@$selectedDomain",
             providerName = providerName
         )
     }
@@ -41,18 +52,51 @@ class GuerrillaMailProvider : EmailProvider {
         accountId: String,
         token: String
     ): List<ProviderMessageSummary> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            ProviderMessageSummary(
-                id = "gm_welcome_$accountId",
-                fromName = "TempMail OSS Support",
-                fromEmail = "welcome@guerrillamail.com",
-                subject = "Welcome to your temporary 7-day inbox!",
-                preview = "Your temporary email is active for 7 days. You can change email anytime with zero cooldown...",
-                receivedAt = now - 60000L,
-                hasAttachments = false
-            )
-        )
+        // Use 1secmail API: https://www.1secmail.com/api/v1/?action=getMessages&login=LOGIN&domain=DOMAIN
+        return try {
+            val parts = token.split("@")
+            if (parts.size != 2) return emptyList()
+            val login = parts[0]
+            val domain = parts[1]
+
+            val url = "https://www.1secmail.com/api/v1/?action=getMessages&login=$login&domain=$domain"
+            val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            if (connection.responseCode != 200) return emptyList()
+
+            val response = connection.inputStream.bufferedReader().readText()
+            connection.disconnect()
+
+            // Parse JSON response manually (avoid extra dependencies)
+            val messages = mutableListOf<ProviderMessageSummary>()
+            // Simple JSON array parsing
+            val items = parseJsonArray(response)
+            for (item in items) {
+                val id = itemRegex.find(item)?.groupValues?.get(1) ?: continue
+                val from = extractJsonString(item, "from") ?: "Unknown"
+                val subject = extractJsonString(item, "subject") ?: "(No Subject)"
+                val date = extractJsonString(item, "date") ?: ""
+
+                messages.add(
+                    ProviderMessageSummary(
+                        id = id,
+                        fromName = from.substringBefore("@"),
+                        fromEmail = from,
+                        subject = subject,
+                        preview = "",
+                        receivedAt = System.currentTimeMillis(),
+                        hasAttachments = false
+                    )
+                )
+            }
+            messages
+        } catch (e: Exception) {
+            Log.e("GuerrillaMailProvider", "fetchInbox failed: ${e.message}")
+            emptyList()
+        }
     }
 
     override suspend fun fetchMessageDetails(
@@ -60,33 +104,35 @@ class GuerrillaMailProvider : EmailProvider {
         token: String,
         messageId: String
     ): ProviderMessageDetail {
-        val now = System.currentTimeMillis()
-        val welcomeHtml = """
-            <!DOCTYPE html>
-            <html>
-            <head><style>body { font-family: sans-serif; color: #E2E8F0; background: #0F172A; padding: 16px; } h2 { color: #38BDF8; }</style></head>
-            <body>
-                <h2>Welcome to TempMail OSS</h2>
-                <p>You are using our fallback high-speed provider. Here is how TempMail OSS works:</p>
-                <ul>
-                    <li><b>7-Day Expiration:</b> Every address stays alive for exactly 7 days.</li>
-                    <li><b>Zero Cooldown:</b> Press 'Change Email' anytime to get a new address immediately.</li>
-                    <li><b>Private &amp; Secure:</b> No logs, no analytics, no ads.</li>
-                </ul>
-                <p>Happy browsing!</p>
-            </body>
-            </html>
-        """.trimIndent()
+        val parts = token.split("@")
+        if (parts.size != 2) throw IllegalStateException("Invalid token format")
+        val login = parts[0]
+        val domain = parts[1]
+
+        val url = "https://www.1secmail.com/api/v1/?action=readMessage&login=$login&domain=$domain&id=$messageId"
+        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+
+        if (connection.responseCode != 200) throw IllegalStateException("Failed to fetch message")
+
+        val response = connection.inputStream.bufferedReader().readText()
+        connection.disconnect()
+
+        val from = extractJsonString(response, "from") ?: "Unknown"
+        val subject = extractJsonString(response, "subject") ?: "(No Subject)"
+        val textBody = extractJsonString(response, "textBody") ?: ""
+        val htmlBody = extractJsonString(response, "htmlBody")
 
         return ProviderMessageDetail(
             id = messageId,
-            fromName = "TempMail OSS Support",
-            fromEmail = "welcome@guerrillamail.com",
-            subject = "Welcome to your temporary 7-day inbox!",
-            textBody = "Welcome to TempMail OSS! Your temporary email is active for 7 days. You can change email anytime with zero cooldown.",
-            htmlBody = welcomeHtml,
-            receivedAt = now - 60000L,
-            attachments = emptyList()
+            fromName = from.substringBefore("@"),
+            fromEmail = from,
+            subject = subject,
+            textBody = textBody.ifBlank { subject },
+            htmlBody = htmlBody,
+            receivedAt = System.currentTimeMillis()
         )
     }
 
@@ -94,5 +140,42 @@ class GuerrillaMailProvider : EmailProvider {
         accountId: String,
         token: String,
         messageId: String
-    ): Boolean = true
+    ): Boolean {
+        // 1secmail doesn't support deleting individual messages
+        return true
+    }
+
+    // Simple JSON helpers
+    private fun parseJsonArray(json: String): List<String> {
+        val content = json.trim().removeSurrounding("[", "]")
+        if (content.isBlank()) return emptyList()
+        val items = mutableListOf<String>()
+        var depth = 0
+        var start = -1
+        for (i in content.indices) {
+            if (content[i] == '{') {
+                if (depth == 0) start = i
+                depth++
+            } else if (content[i] == '}') {
+                depth--
+                if (depth == 0 && start >= 0) {
+                    items.add(content.substring(start, i + 1))
+                    start = -1
+                }
+            }
+        }
+        return items
+    }
+
+    private val itemRegex = Regex("\"id\"\\s*:\\s*(\\d+)")
+
+    private fun extractJsonString(json: String, key: String): String? {
+        val regex = Regex("\"$key\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+        val match = regex.find(json) ?: return null
+        return match.groupValues[1]
+            .replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\")
+    }
 }

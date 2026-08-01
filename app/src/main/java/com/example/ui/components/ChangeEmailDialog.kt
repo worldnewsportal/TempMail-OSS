@@ -33,13 +33,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.R
 
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.ui.graphics.Color
-import androidx.compose.runtime.collectAsState
-import com.example.ui.components.RewardType
-
+/**
+ * Change Email Dialog - All domains are REAL (no fake premium domains).
+ * Custom username is sent to the real API.
+ */
 @Composable
 fun ChangeEmailDialog(
     availableDomains: List<String>,
@@ -47,23 +44,14 @@ fun ChangeEmailDialog(
     onCreate: (customUsername: String?, domain: String?) -> Unit,
     onShowAdReward: (RewardType) -> Unit = {}
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val settingsRepo = remember(context) { com.example.data.preferences.AppSettingsRepository(context) }
-    val settings by settingsRepo.settingsFlow.collectAsState(initial = com.example.data.preferences.AppSettings())
-    val isPremiumUnlocked = settings.premiumDomainsUnlockedUntil > System.currentTimeMillis()
-
     var isCustom by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
     var selectedDomain by remember { mutableStateOf("") }
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(availableDomains, isPremiumUnlocked) {
-        if (availableDomains.isNotEmpty() && (selectedDomain.isEmpty() || (selectedDomain !in availableDomains))) {
-            val firstUnlocked = availableDomains.firstOrNull { dom ->
-                val isPremium = dom.contains("premium", true) || dom.contains("vip", true) || dom.contains("pro", true) || dom.contains("cloud", true) || dom.contains("top", true) || dom.contains("app", true) || dom.contains("dev", true) || dom.contains("club", true)
-                isPremiumUnlocked || !isPremium
-            } ?: availableDomains.first()
-            selectedDomain = firstUnlocked
+    LaunchedEffect(availableDomains) {
+        if (availableDomains.isNotEmpty() && (selectedDomain.isEmpty() || selectedDomain !in availableDomains)) {
+            selectedDomain = availableDomains.first()
         }
     }
 
@@ -121,14 +109,14 @@ fun ChangeEmailDialog(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Domain Selection Dropdown
+                // Domain Selection Dropdown - All domains are real
                 Text(
                     text = stringResource(id = R.string.domain_select),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -136,10 +124,8 @@ fun ChangeEmailDialog(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val isSelectedPremium = selectedDomain.contains("premium", true) || selectedDomain.contains("vip", true) || selectedDomain.contains("pro", true) || selectedDomain.contains("cloud", true) || selectedDomain.contains("top", true) || selectedDomain.contains("app", true) || selectedDomain.contains("dev", true) || selectedDomain.contains("club", true)
-                    
                     Text(
-                        text = selectedDomain.ifEmpty { "Loading domains..." } + if (isSelectedPremium) " (Premium ⭐)" else "",
+                        text = selectedDomain.ifEmpty { "Loading domains..." },
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
@@ -151,41 +137,11 @@ fun ChangeEmailDialog(
                     onDismissRequest = { dropdownExpanded = false }
                 ) {
                     availableDomains.forEach { dom ->
-                        val isPremium = dom.contains("premium", true) || dom.contains("vip", true) || dom.contains("pro", true) || dom.contains("cloud", true) || dom.contains("top", true) || dom.contains("app", true) || dom.contains("dev", true) || dom.contains("club", true)
-                        val isLocked = isPremium && !isPremiumUnlocked
-                        
                         DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(dom)
-                                    if (isPremium) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        if (isLocked) {
-                                            Icon(
-                                                imageVector = Icons.Default.Lock,
-                                                contentDescription = "Locked",
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Star,
-                                                contentDescription = "Unlocked Premium",
-                                                tint = Color(0xFFFFD700),
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            },
+                            text = { Text(dom) },
                             onClick = {
-                                if (isLocked) {
-                                    dropdownExpanded = false
-                                    onShowAdReward(RewardType.PREMIUM_DOMAINS)
-                                } else {
-                                    selectedDomain = dom
-                                    dropdownExpanded = false
-                                }
+                                selectedDomain = dom
+                                dropdownExpanded = false
                             }
                         )
                     }
