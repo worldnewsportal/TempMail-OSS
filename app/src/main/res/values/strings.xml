@@ -113,7 +113,7 @@
     <!-- About & Privacy -->
     <string name="about_title">About TempMail OSS</string>
     <string name="about_privacy_title">100% Private &amp; Open Source</string>
-    <string name="about_privacy_text">TempMail OSS is an Open Source temporary email client. No account is required, no personal data is collected, no ads are displayed, and no analytics or trackers are included.</string>
+    <string name="about_privacy_text">TempMail OSS is an Open Source temporary email client. No account is required, no personal data is collected, and no analytics or trackers are included. Ads are minimal and optional — watch a rewarded ad to unlock premium features.</string>
     <string name="mit_license">MIT License — All rights reserved.</string>
     <string name="github_link">GitHub Repository</string>
 

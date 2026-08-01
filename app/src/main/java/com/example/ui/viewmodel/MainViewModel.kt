@@ -455,9 +455,9 @@ class MainViewModel(
             val currentActive = repo.activeAccount.firstOrNull()
             if (currentActive != null) {
                 repo.extendEmailExpiration(currentActive.id, durationMillis)
-                showToast("تم تمديد صلاحية البريد الإلكتروني بنجاح!")
+                showToast("Email lifetime extended successfully!")
             } else {
-                showToast("لا يوجد بريد نشط لتمديده!")
+                showToast("No active email to extend!")
             }
         }
     }
@@ -467,7 +467,7 @@ class MainViewModel(
             val durationMillis = hours * 60 * 60 * 1000L
             val now = System.currentTimeMillis()
             settingsRepo.updateAdFreeUntil(now + durationMillis)
-            showToast("تم تفعيل الوضع الخالي من الإعلانات لمدة $hours ساعة!")
+            showToast("Ad-free mode activated for $hours hours!")
         }
     }
 
@@ -476,7 +476,7 @@ class MainViewModel(
             val durationMillis = hours * 60 * 60 * 1000L
             val now = System.currentTimeMillis()
             settingsRepo.updatePremiumDomainsUnlockedUntil(now + durationMillis)
-            showToast("تم فتح النطاقات المميزة بنجاح لمدة $hours ساعتين!")
+            showToast("Premium domains unlocked for $hours hours!")
         }
     }
 

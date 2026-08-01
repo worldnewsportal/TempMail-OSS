@@ -53,22 +53,22 @@ fun AdRewardDialog(
         when (selectedType) {
             RewardType.EXTEND_LIFETIME -> SponsorAd(
                 title = "CyberShield Premium VPN",
-                description = "تشفير عالي الدرجة لحماية خصوصية اتصالاتك ورسائلك المؤقتة. بنقرة واحدة تكون آمناً 100٪.",
-                cta = "تحميل وتأمين مجاني",
+                description = "Grade-A encryption for your credentials and temporary email traffic. Stay 100% secure with one tap.",
+                cta = "Download & Secure Free",
                 colorStart = Color(0xFF1D4ED8),
                 colorEnd = Color(0xFF1E3A8A)
             )
             RewardType.AD_FREE -> SponsorAd(
                 title = "Unity Mobile Ads Engine",
-                description = "تقنية الإعلانات الذكية والآمنة لدعم المطورين المستقلين حول العالم. أداء وسرعة لا مثيل لهما.",
-                cta = "اكتشف الحلول الإعلانية",
+                description = "Smart and safe ad technology empowering indie developers worldwide. Unmatched performance and speed.",
+                cta = "Discover Ad Solutions",
                 colorStart = Color(0xFF047857),
                 colorEnd = Color(0xFF065F46)
             )
             RewardType.PREMIUM_DOMAINS -> SponsorAd(
                 title = "CloudHost NVMe VPS Container",
-                description = "استضف قواعد بياناتك ومشاريعك على خوادم فائقة السرعة مع حماية DDoS متكاملة مجاناً.",
-                cta = "توليد خادم تجريبي",
+                description = "Host your databases and projects on ultra-fast servers with free integrated DDoS protection.",
+                cta = "Spawn Trial Server",
                 colorStart = Color(0xFF7C3AED),
                 colorEnd = Color(0xFF5B21B6)
             )
@@ -190,10 +190,10 @@ fun SelectRewardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
-                Icon(imageVector = Icons.Default.Close, contentDescription = "إغلاق")
+                Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
             }
             Text(
-                text = "مكافآت مجانية 🎁",
+                text = "Free Reward",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -203,7 +203,7 @@ fun SelectRewardScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "شاهد إعلاناً واحداً (لمدة دقيقة كاملة) لدعم التطبيق وتفعيل أي من الميزات الممتازة التالية مجاناً 100٪ وبدون أي تكلفة!",
+            text = "Watch a single ad (for one full minute) to support the app and activate any of the following premium features 100% free with no cost!",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -214,14 +214,14 @@ fun SelectRewardScreen(
 
         // Option 1: Extend lifetime
         RewardOptionCard(
-            title = "تمديد صلاحية البريد النشط (+1 ساعة)",
-            description = if (activeEmailAddress != null) "إضافة ساعة كاملة إلى عمر بريدك: $activeEmailAddress" else "يجب إنشاء بريد إلكتروني أولاً لاستخدام هذه الميزة",
+            title = "Extend Active Email Lifetime (+1 hour)",
+            description = if (activeEmailAddress != null) "Add a full hour to your email: $activeEmailAddress" else "Create an email first to use this feature",
             icon = Icons.Default.Timer,
             isSelected = selectedType == RewardType.EXTEND_LIFETIME,
             statusText = if (activeEmailExpiresAt != null) {
                 val diff = activeEmailExpiresAt - now
-                if (diff <= 0) "منتهي الصلاحية" else "متبقي: ${formatMillisToShort(diff)}"
-            } else "لا يوجد بريد نشط",
+                if (diff <= 0) "Expired" else "Remaining: ${formatMillisToShort(diff)}"
+            } else "No active email",
             enabled = activeEmailAddress != null,
             onClick = { onTypeSelected(RewardType.EXTEND_LIFETIME) }
         )
@@ -230,11 +230,11 @@ fun SelectRewardScreen(
 
         // Option 2: Remove Ads
         RewardOptionCard(
-            title = "وضع خالي من الإعلانات (24 ساعة)",
-            description = "إزالة كافة الإعلانات واللافتات والبنرات الإعلانية بالكامل من جميع الشاشات.",
+            title = "Ad-Free Mode (24 hours)",
+            description = "Remove all ads, banners, and sponsored cards from every screen in the app.",
             icon = Icons.Default.DoNotDisturb,
             isSelected = selectedType == RewardType.AD_FREE,
-            statusText = if (isAdFreeActive) "نشط (ينتهي خلال: ${formatMillisToShort(adFreeUntil - now)})" else "غير نشط",
+            statusText = if (isAdFreeActive) "Active (expires in: ${formatMillisToShort(adFreeUntil - now)})" else "Inactive",
             enabled = true,
             onClick = { onTypeSelected(RewardType.AD_FREE) }
         )
@@ -243,11 +243,11 @@ fun SelectRewardScreen(
 
         // Option 3: Premium Domains
         RewardOptionCard(
-            title = "النطاقات المميزة والنادرة (ساعتين)",
-            description = "فتح نطاقات ممتازة ونادرة (.vip, .pro, .premium) عند إنشاء حساباتك الجديدة.",
+            title = "Premium & Rare Domains (2 hours)",
+            description = "Unlock premium and rare domains (.vip, .pro, .premium) when creating new accounts.",
             icon = Icons.Default.Star,
             isSelected = selectedType == RewardType.PREMIUM_DOMAINS,
-            statusText = if (isPremiumDomainsActive) "مفتوح (ينتهي خلال: ${formatMillisToShort(premiumDomainsUnlockedUntil - now)})" else "مغلق",
+            statusText = if (isPremiumDomainsActive) "Unlocked (expires in: ${formatMillisToShort(premiumDomainsUnlockedUntil - now)})" else "Locked",
             enabled = true,
             onClick = { onTypeSelected(RewardType.PREMIUM_DOMAINS) }
         )
@@ -266,7 +266,7 @@ fun SelectRewardScreen(
             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "بدء تشغيل الإعلان (دقيقة واحدة) ⚡",
+                text = "Start Ad Playback (1 minute) ⚡",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
@@ -403,7 +403,7 @@ fun AdPlayerScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "بث إعلان يونتي الحقيقي",
+                        text = "Live Unity Ad",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = Color.Red
                     )
@@ -411,7 +411,7 @@ fun AdPlayerScreen(
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "متبقي: $secondsRemaining ثانية",
+                text = "Remaining: $secondsRemaining sec",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
             )
@@ -467,7 +467,7 @@ fun AdPlayerScreen(
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "إعلان ممول",
+                                text = "Sponsored",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
@@ -528,7 +528,7 @@ fun AdPlayerScreen(
             Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "يجب عدم إغلاق النافذة حتى اكتمال الدقيقة بالكامل لتتمكن من استلام مكافأتك 🛡️",
+                text = "Do not close this window until the minute fully completes to receive your reward 🛡️",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
@@ -566,7 +566,7 @@ fun SuccessRewardScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "تهانينا! اكتملت المشاهدة 🎉",
+            text = "Congratulations! Viewing Complete 🎉",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
@@ -575,13 +575,13 @@ fun SuccessRewardScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         val rewardText = when (selectedType) {
-            RewardType.EXTEND_LIFETIME -> "تمديد صلاحية بريدك الإلكتروني الحالي بساعة إضافية مجاناً!"
-            RewardType.AD_FREE -> "تفعيل الوضع الخالي من الإعلانات بالكامل في التطبيق لمدة 24 ساعة!"
-            RewardType.PREMIUM_DOMAINS -> "فتح وتفعيل النطاقات المميزة والنادرة الجديدة مجاناً لمدة ساعتين!"
+            RewardType.EXTEND_LIFETIME -> "Your active email lifetime has been extended by 1 extra hour for free!"
+            RewardType.AD_FREE -> "Ad-free mode has been fully activated across the app for 24 hours!"
+            RewardType.PREMIUM_DOMAINS -> "Premium and rare new domains have been unlocked for free for 2 hours!"
         }
 
         Text(
-            text = "لقد شاهدت الإعلان بالكامل واستوفيت الشرط. اضغط على الزر أدناه لتفعيل مكافأتك الآن:\n\n$rewardText",
+            text = "You watched the full ad and met the requirement. Tap the button below to claim your reward now:\n\n$rewardText",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -599,7 +599,7 @@ fun SuccessRewardScreen(
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = "تفعيل الميزة الآن ✅",
+                text = "Activate Feature Now ✅",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
