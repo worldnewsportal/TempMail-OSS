@@ -8,12 +8,13 @@ import kotlinx.coroutines.withContext
  * ProviderManager - Manages email providers with automatic failover.
  *
  * Only REAL providers are used:
- * - Mail.tm (primary) - real API, supports custom username
+ * - Mail.tm (primary) - real API, supports custom username, supports sending
  * - 1secmail (fallback) - real API, supports custom username
  * - 1secmail-alt (fallback) - real API, supports custom username
  * - Offline (last resort) - no API, empty inbox
  *
- * No fake "Premium" domains. All domains are from real email services.
+ * Domain routing: When a user selects a specific domain, the manager
+ * automatically routes to the provider that owns that domain.
  */
 class ProviderManager(
     private val mailTmProvider: MailTmProvider,
@@ -23,6 +24,9 @@ class ProviderManager(
 ) {
     private val providers = listOf(mailTmProvider, guerrillaMailProvider, oneSecMailProvider, simulationProvider)
     private var currentProviderIndex = 0
+
+    // Cache domain-to-provider mapping for fast lookup
+    private var domainProviderMap: Map<String, EmailProvider> = emptyMap()
 
     suspend fun getActiveProvider(): EmailProvider = withContext(Dispatchers.IO) {
         val current = providers[currentProviderIndex]
@@ -48,28 +52,64 @@ class ProviderManager(
 
     /**
      * Get all available domains from REAL providers only.
-     * No fake/simulated domains.
+     * Also builds the domain-to-provider mapping for routing.
      */
     suspend fun getAllAvailableDomains(): List<String> = withContext(Dispatchers.IO) {
         val domainsList = mutableListOf<String>()
+        val domainMap = mutableMapOf<String, EmailProvider>()
+
         for (provider in providers) {
             if (provider is SimulationProvider) continue
             try {
                 val pDomains = provider.getAvailableDomains()
-                domainsList.addAll(pDomains)
+                for (domain in pDomains) {
+                    domainsList.add(domain)
+                    domainMap[domain] = provider
+                }
             } catch (e: Exception) {
                 // Ignore provider domain failures
             }
         }
+
+        // Cache the mapping
+        domainProviderMap = domainMap
+        Log.i("ProviderManager", "Available domains: $domainsList (mapped to ${domainMap.size} providers)")
         domainsList.distinct()
     }
 
+    /**
+     * Get the provider that owns a specific domain.
+     */
+    fun getProviderForDomain(domain: String): EmailProvider? {
+        return domainProviderMap[domain]
+    }
+
+    /**
+     * Create an account, routing to the correct provider based on the selected domain.
+     * If the domain belongs to a specific provider, that provider is used.
+     * Otherwise, falls back to the current active provider with failover.
+     */
     suspend fun createAccountWithFailover(
         customUsername: String? = null,
         domain: String? = null
     ): ProviderAccountResult = withContext(Dispatchers.IO) {
+        // If a specific domain is selected, try to use the provider that owns it
+        if (!domain.isNullOrBlank()) {
+            val domainProvider = domainProviderMap[domain]
+            if (domainProvider != null) {
+                try {
+                    val account = domainProvider.createAccount(customUsername, domain)
+                    currentProviderIndex = providers.indexOf(domainProvider).coerceAtLeast(0)
+                    Log.i("ProviderManager", "Created account on ${domainProvider.providerName} for domain $domain")
+                    return@withContext account
+                } catch (e: Exception) {
+                    Log.w("ProviderManager", "Failed to create on ${domainProvider.providerName}: ${e.message}. Trying failover...")
+                }
+            }
+        }
+
+        // Fall back to normal failover
         var lastException: Exception? = null
-        // Try real providers first, skip SimulationProvider
         for (i in providers.indices) {
             val provider = providers[(currentProviderIndex + i) % providers.size]
             if (provider is SimulationProvider) continue

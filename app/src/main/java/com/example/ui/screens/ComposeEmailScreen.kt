@@ -245,7 +245,7 @@ fun ComposeEmailScreen(
             // From field (read-only)
             RecipientRow(
                 label = "From",
-                value = viewModel.activeAccount.collectAsState().value?.address ?: "No active email",
+                value = viewModel.activeAccount.collectAsState(initial = null).value?.address ?: "No active email",
                 isReadOnly = true
             )
 

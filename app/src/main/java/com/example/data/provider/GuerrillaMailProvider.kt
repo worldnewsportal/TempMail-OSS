@@ -14,7 +14,7 @@ import java.util.UUID
 class GuerrillaMailProvider : EmailProvider {
     override val providerName: String = "1secmail"
 
-    private val domains = listOf("1secmail.com", "1secmail.org", "1secmail.net", "esiix.com", "wwjmp.com", "xojxe.com", "yoggm.com")
+    private val domains = listOf("1secmail.com", "1secmail.org", "1secmail.net", "esiix.com", "wwjmp.com", "xojxe.com", "yoggm.com", "pyiauje.com", "kzccv.com")
 
     override suspend fun healthCheck(): Boolean = true
 

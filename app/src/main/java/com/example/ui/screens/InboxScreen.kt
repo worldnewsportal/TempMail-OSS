@@ -46,7 +46,6 @@ import kotlinx.coroutines.delay
 fun InboxScreen(
     viewModel: MainViewModel,
     onNavigateToDetail: (MessageEntity) -> Unit,
-    onCompose: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activeEmail by viewModel.activeAccount.collectAsState(initial = null)
@@ -102,17 +101,6 @@ fun InboxScreen(
                     showAdRewardDialog = true
                 }
             )
-        },
-        floatingActionButton = {
-            if (activeEmail != null) {
-                FloatingActionButton(
-                    onClick = onCompose,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Compose")
-                }
-            }
         },
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->

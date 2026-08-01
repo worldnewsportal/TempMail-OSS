@@ -118,8 +118,7 @@ fun MainAppContainerScreen(
                         when (activeTab) {
                             NavTab.Inbox -> InboxScreen(
                                 viewModel = viewModel,
-                                onNavigateToDetail = { currentDetailMessage = it },
-                                onCompose = { composeState = ComposeState(isComposing = true) }
+                                onNavigateToDetail = { currentDetailMessage = it }
                             )
                             NavTab.Emails -> ManageEmailsScreen(viewModel = viewModel)
                             NavTab.Search -> SearchScreen(
@@ -234,8 +233,7 @@ fun MainAppContainerScreen(
                         when (activeTab) {
                             NavTab.Inbox -> InboxScreen(
                                 viewModel = viewModel,
-                                onNavigateToDetail = { currentDetailMessage = it },
-                                onCompose = { composeState = ComposeState(isComposing = true) }
+                                onNavigateToDetail = { currentDetailMessage = it }
                             )
                             NavTab.Emails -> ManageEmailsScreen(viewModel = viewModel)
                             NavTab.Search -> SearchScreen(
