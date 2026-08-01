@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.Arrangement
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -133,7 +134,7 @@ fun ChangeEmailDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 200.dp),
-                        verticalArrangement = androidx.compose.foundation.lazy.Arrangement.spacedBy(0.dp)
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
                         items(availableDomains) { dom ->
                             Row(
