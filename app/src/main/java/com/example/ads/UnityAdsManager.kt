@@ -2,10 +2,6 @@ package com.example.ads
 
 import android.app.Activity
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -19,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,29 +34,19 @@ import com.unity3d.ads.IUnityAdsInitializationListener
 import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
+import com.unity3d.ads.UnityAdsShowOptions
 import com.unity3d.services.banners.BannerView
 import com.unity3d.services.banners.UnityBannerSize
 
 /**
- * Unity Ads Manager - PRODUCTION ONLY
+ * Unity Ads Manager - Based on the working reference implementation.
  *
- * This manager is hardcoded to PRODUCTION mode. Test mode is NEVER used.
- *
- * IMPORTANT: If you still see test ads (with "Live Unity Ad" badge or debug timer),
- * you MUST check the Unity Dashboard:
- *
- *   1. Go to https://dashboard.unity3d.com
- *   2. Select your project (Game ID: 6043972)
- *   3. Go to Monetization > Project Settings > Test Mode
- *   4. For Android: Set "Override Client Test Mode" -> "Force Test Mode OFF"
- *   5. Save and wait up to 24 hours for changes to propagate
- *
- * The Dashboard test mode override takes PRECEDENCE over the SDK parameter.
- * If the Dashboard is set to "Force Test Mode ON", real ads will NEVER show
- * regardless of what the code says.
- *
- * Network: Unity Ads uses HTTPS only. No special network config needed.
- * If the app starts offline, the SDK will retry when connectivity is restored.
+ * This matches the proven AdsDemo project exactly:
+ * - SDK 4.19.0
+ * - Uses UnityAdsShowOptions() in show() calls
+ * - Proper bannerView.destroy() cleanup
+ * - Non-nullable callback parameters
+ * - Simple, direct initialization
  */
 object UnityAdsManager {
 
@@ -73,158 +60,52 @@ object UnityAdsManager {
     private const val INTERSTITIAL_PLACEMENT = "Interstitial_Android"
     private const val REWARDED_PLACEMENT = "Rewarded_Android"
 
-    // PRODUCTION MODE - hardcoded, never test mode
+    // PRODUCTION MODE - hardcoded to false, never test mode
     private const val TEST_MODE = false
 
     var isInitialized = false
         private set
 
     private var isInitializing = false
-    private var initFailed = false
-    private var appContext: Context? = null
-    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     // ========== INITIALIZATION ==========
 
     /**
      * Initialize Unity Ads SDK in PRODUCTION mode.
-     * Test mode is NEVER enabled - hardcoded to false.
-     * If there's no internet, it will automatically retry when connectivity is restored.
+     * Matches the working reference implementation exactly.
      */
     fun initialize(context: Context) {
         if (isInitialized || isInitializing) return
-
-        appContext = context.applicationContext
-
-        // Check if there's internet first
-        if (!isNetworkAvailable(context)) {
-            Log.w(TAG, "No internet connection - will initialize when network is available")
-            registerNetworkCallback(context)
-            return
-        }
-
-        doInitialize(context.applicationContext)
-    }
-
-    private fun doInitialize(context: Context) {
-        if (isInitialized || isInitializing) return
         isInitializing = true
-        initFailed = false
 
-        Log.i(TAG, "============================================")
-        Log.i(TAG, "Unity Ads SDK - PRODUCTION initialization")
+        Log.i(TAG, "Initializing Unity Ads SDK...")
         Log.i(TAG, "  Game ID: $GAME_ID")
-        Log.i(TAG, "  Test Mode: $TEST_MODE (hardcoded)")
+        Log.i(TAG, "  Test Mode: $TEST_MODE")
         Log.i(TAG, "  Banner: $BANNER_PLACEMENT")
         Log.i(TAG, "  Interstitial: $INTERSTITIAL_PLACEMENT")
         Log.i(TAG, "  Rewarded: $REWARDED_PLACEMENT")
-        Log.i(TAG, "============================================")
 
-        try {
-            UnityAds.initialize(
-                context,
-                GAME_ID,
-                TEST_MODE,
-                object : IUnityAdsInitializationListener {
-                    override fun onInitializationComplete() {
-                        isInitialized = true
-                        isInitializing = false
-                        initFailed = false
-                        // Unregister network callback - no longer needed
-                        unregisterNetworkCallback()
-                        Log.i(TAG, "Unity Ads initialized - PRODUCTION MODE")
-                    }
-
-                    override fun onInitializationFailed(
-                        error: UnityAds.UnityAdsInitializationError?,
-                        message: String?
-                    ) {
-                        isInitialized = false
-                        isInitializing = false
-                        initFailed = true
-                        Log.e(TAG, "Unity Ads initialization FAILED!")
-                        Log.e(TAG, "  Error: $error")
-                        Log.e(TAG, "  Message: $message")
-                        Log.e(TAG, "  Game ID: $GAME_ID")
-                        when (error) {
-                            UnityAds.UnityAdsInitializationError.INTERNAL_ERROR ->
-                                Log.e(TAG, "  -> Internal error. Check internet connection.")
-                            UnityAds.UnityAdsInitializationError.INVALID_ARGUMENT ->
-                                Log.e(TAG, "  -> Invalid argument. Check Game ID.")
-                            UnityAds.UnityAdsInitializationError.AD_BLOCKER_DETECTED ->
-                                Log.e(TAG, "  -> Ad blocker detected!")
-                            else ->
-                                Log.e(TAG, "  -> Unknown error. Verify Game ID at dashboard.unity3d.com")
-                        }
-                        // Register for network retry
-                        appContext?.let { registerNetworkCallback(it) }
-                    }
+        UnityAds.initialize(
+            context.applicationContext,
+            GAME_ID,
+            TEST_MODE,
+            object : IUnityAdsInitializationListener {
+                override fun onInitializationComplete() {
+                    isInitialized = true
+                    isInitializing = false
+                    Log.i(TAG, "Unity Ads initialized - PRODUCTION MODE")
                 }
-            )
-        } catch (e: Throwable) {
-            isInitialized = false
-            isInitializing = false
-            initFailed = true
-            Log.e(TAG, "Exception during Unity Ads init: ${e.message}", e)
-            appContext?.let { registerNetworkCallback(it) }
-        }
-    }
 
-    // ========== NETWORK CONNECTIVITY ==========
-
-    private fun isNetworkAvailable(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        val network = cm?.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    /**
-     * Register a network callback to retry initialization when internet becomes available.
-     * This handles the case where the app starts offline.
-     */
-    private fun registerNetworkCallback(context: Context) {
-        if (isInitialized) return
-
-        try {
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
-
-            // Unregister any existing callback first
-            unregisterNetworkCallback()
-
-            val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    Log.i(TAG, "Network available - retrying Unity Ads initialization")
-                    if (!isInitialized && !isInitializing) {
-                        appContext?.let { doInitialize(it) }
-                    }
+                override fun onInitializationFailed(
+                    error: UnityAds.UnityAdsInitializationError?,
+                    message: String?
+                ) {
+                    isInitialized = false
+                    isInitializing = false
+                    Log.e(TAG, "Init failed: $error - $message")
                 }
             }
-
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-
-            cm.registerNetworkCallback(request, callback)
-            networkCallback = callback
-            Log.d(TAG, "Network callback registered - will init when online")
-        } catch (e: Throwable) {
-            Log.e(TAG, "Failed to register network callback: ${e.message}", e)
-        }
-    }
-
-    private fun unregisterNetworkCallback() {
-        try {
-            networkCallback?.let {
-                appContext?.let { ctx ->
-                    val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-                    cm?.unregisterNetworkCallback(it)
-                }
-            }
-            networkCallback = null
-        } catch (e: Throwable) {
-            Log.w(TAG, "Failed to unregister network callback: ${e.message}")
-        }
+        )
     }
 
     // ========== REWARDED ADS ==========
@@ -243,47 +124,52 @@ object UnityAdsManager {
 
         Log.d(TAG, "Loading rewarded ad: $placementId")
         UnityAds.load(placementId, object : IUnityAdsLoadListener {
-            override fun onUnityAdsAdLoaded(placement: String?) {
+            override fun onUnityAdsAdLoaded(placement: String) {
                 Log.i(TAG, "Rewarded ad loaded, showing...")
-                UnityAds.show(activity, placementId, object : IUnityAdsShowListener {
-                    override fun onUnityAdsShowFailure(
-                        placement: String?,
-                        error: UnityAds.UnityAdsShowError?,
-                        message: String?
-                    ) {
-                        Log.e(TAG, "Rewarded ad show failed: $message (error: $error)")
-                        onFailed()
-                    }
-
-                    override fun onUnityAdsShowStart(placement: String?) {
-                        Log.d(TAG, "Rewarded ad started")
-                    }
-
-                    override fun onUnityAdsShowClick(placement: String?) {
-                        Log.d(TAG, "Rewarded ad clicked")
-                    }
-
-                    override fun onUnityAdsShowComplete(
-                        placement: String?,
-                        state: UnityAds.UnityAdsShowCompletionState?
-                    ) {
-                        if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
-                            Log.i(TAG, "Rewarded ad completed - granting reward")
-                            onComplete()
-                        } else {
-                            Log.w(TAG, "Rewarded ad not completed (state: $state)")
+                UnityAds.show(
+                    activity,
+                    placement,
+                    UnityAdsShowOptions(),
+                    object : IUnityAdsShowListener {
+                        override fun onUnityAdsShowFailure(
+                            placement: String,
+                            error: UnityAds.UnityAdsShowError?,
+                            message: String?
+                        ) {
+                            Log.e(TAG, "Rewarded ad show failed: $message")
                             onFailed()
                         }
+
+                        override fun onUnityAdsShowStart(placement: String) {
+                            Log.d(TAG, "Rewarded ad started")
+                        }
+
+                        override fun onUnityAdsShowClick(placement: String) {
+                            Log.d(TAG, "Rewarded ad clicked")
+                        }
+
+                        override fun onUnityAdsShowComplete(
+                            placement: String,
+                            state: UnityAds.UnityAdsShowCompletionState?
+                        ) {
+                            if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
+                                Log.i(TAG, "Rewarded ad completed - granting reward")
+                                onComplete()
+                            } else {
+                                Log.w(TAG, "Rewarded ad not completed (state: $state)")
+                                onFailed()
+                            }
+                        }
                     }
-                })
+                )
             }
 
             override fun onUnityAdsFailedToLoad(
-                placement: String?,
+                placement: String,
                 error: UnityAds.UnityAdsLoadError?,
                 message: String?
             ) {
-                Log.e(TAG, "Rewarded ad failed to load: $message (error: $error)")
+                Log.e(TAG, "Rewarded ad failed to load ($placement): $message")
                 onFailed()
             }
         })
@@ -305,42 +191,47 @@ object UnityAdsManager {
 
         Log.d(TAG, "Loading interstitial ad: $placementId")
         UnityAds.load(placementId, object : IUnityAdsLoadListener {
-            override fun onUnityAdsAdLoaded(placement: String?) {
+            override fun onUnityAdsAdLoaded(placement: String) {
                 Log.i(TAG, "Interstitial ad loaded, showing...")
-                UnityAds.show(activity, placementId, object : IUnityAdsShowListener {
-                    override fun onUnityAdsShowFailure(
-                        placement: String?,
-                        error: UnityAds.UnityAdsShowError?,
-                        message: String?
-                    ) {
-                        Log.e(TAG, "Interstitial ad show failed: $message (error: $error)")
-                        onFailed()
-                    }
+                UnityAds.show(
+                    activity,
+                    placement,
+                    UnityAdsShowOptions(),
+                    object : IUnityAdsShowListener {
+                        override fun onUnityAdsShowFailure(
+                            placement: String,
+                            error: UnityAds.UnityAdsShowError?,
+                            message: String?
+                        ) {
+                            Log.e(TAG, "Interstitial ad show failed: $message")
+                            onFailed()
+                        }
 
-                    override fun onUnityAdsShowStart(placement: String?) {
-                        Log.d(TAG, "Interstitial ad started")
-                    }
+                        override fun onUnityAdsShowStart(placement: String) {
+                            Log.d(TAG, "Interstitial ad started")
+                        }
 
-                    override fun onUnityAdsShowClick(placement: String?) {
-                        Log.d(TAG, "Interstitial ad clicked")
-                    }
+                        override fun onUnityAdsShowClick(placement: String) {
+                            Log.d(TAG, "Interstitial ad clicked")
+                        }
 
-                    override fun onUnityAdsShowComplete(
-                        placement: String?,
-                        state: UnityAds.UnityAdsShowCompletionState?
-                    ) {
-                        Log.i(TAG, "Interstitial ad closed")
-                        onClosed()
+                        override fun onUnityAdsShowComplete(
+                            placement: String,
+                            state: UnityAds.UnityAdsShowCompletionState?
+                        ) {
+                            Log.i(TAG, "Interstitial ad closed")
+                            onClosed()
+                        }
                     }
-                })
+                )
             }
 
             override fun onUnityAdsFailedToLoad(
-                placement: String?,
+                placement: String,
                 error: UnityAds.UnityAdsLoadError?,
                 message: String?
             ) {
-                Log.e(TAG, "Interstitial ad failed to load: $message (error: $error)")
+                Log.e(TAG, "Interstitial ad failed to load ($placement): $message")
                 onFailed()
             }
         })
@@ -349,12 +240,10 @@ object UnityAdsManager {
     // ========== BANNER AD COMPOSABLE ==========
 
     /**
-     * Real Unity Banner Ad composable - PRODUCTION ONLY.
-     *
-     * Shows real Unity Ads banners. No test mode, no simulated ads.
-     * - While loading: shows a compact loading indicator
-     * - If failed: shows a small "Tap to retry" text
-     * - Ad-free mode: shows nothing
+     * Real Unity Banner Ad composable.
+     * Based on the working reference implementation.
+     * - Properly destroys BannerView when composable is removed
+     * - Uses the same BannerView pattern as the reference
      */
     @Composable
     fun UnityAdBanner(
@@ -419,7 +308,7 @@ object UnityAdsManager {
             return
         }
 
-        // Real Unity Banner
+        // Real Unity Banner - matches reference implementation
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -435,6 +324,20 @@ object UnityAdsManager {
             }
 
             key(retryKey) {
+                var bannerRef by remember { mutableStateOf<BannerView?>(null) }
+
+                // Destroy banner when composable leaves composition
+                DisposableEffect(Unit) {
+                    onDispose {
+                        try {
+                            bannerRef?.destroy()
+                            Log.d(TAG, "Banner destroyed")
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "Banner destroy error: ${e.message}")
+                        }
+                    }
+                }
+
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
@@ -454,36 +357,35 @@ object UnityAdsManager {
                                     return@apply
                                 }
 
-                                val bannerView = BannerView(
+                                // Same as reference: BannerView(activity, placementId, size)
+                                val banner = BannerView(
                                     activity, placementId, UnityBannerSize(320, 50)
                                 )
-                                bannerView.listener = object : BannerView.IListener {
-                                    override fun onBannerLoaded(view: BannerView?) {
+                                banner.listener = object : BannerView.IListener {
+                                    override fun onBannerLoaded(bannerAdView: BannerView?) {
                                         isLoaded = true
-                                        Log.i(TAG, "Banner ad loaded: $placementId")
+                                        Log.d(TAG, "Banner loaded")
                                     }
 
-                                    override fun onBannerClick(view: BannerView?) {
-                                        Log.d(TAG, "Banner clicked")
+                                    override fun onBannerShown(bannerAdView: BannerView?) {
+                                        Log.d(TAG, "Banner shown")
                                     }
+
+                                    override fun onBannerClick(bannerAdView: BannerView?) {}
 
                                     override fun onBannerFailedToLoad(
-                                        view: BannerView?,
-                                        error: com.unity3d.services.banners.BannerErrorInfo?
+                                        bannerAdView: BannerView?,
+                                        errorInfo: com.unity3d.services.banners.BannerErrorInfo?
                                     ) {
                                         adLoadFailed = true
-                                        Log.e(TAG, "Banner failed: $placementId")
-                                        Log.e(TAG, "  Error: ${error?.errorCode} - ${error?.errorMessage}")
+                                        Log.e(TAG, "Banner failed: ${errorInfo?.errorMessage}")
                                     }
 
-                                    override fun onBannerLeftApplication(view: BannerView?) {}
-
-                                    override fun onBannerShown(view: BannerView?) {
-                                        Log.i(TAG, "Banner displayed on screen")
-                                    }
+                                    override fun onBannerLeftApplication(bannerAdView: BannerView?) {}
                                 }
-                                bannerView.load()
-                                addView(bannerView)
+                                bannerRef = banner
+                                addView(banner)
+                                banner.load()
                             } catch (e: Throwable) {
                                 adLoadFailed = true
                                 Log.e(TAG, "Banner exception: ${e.message}", e)
